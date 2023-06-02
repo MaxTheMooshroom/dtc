@@ -7,7 +7,8 @@
 
 void data_free(struct data d)
 {
-	struct marker *m, *nm;
+	marker_handle_t m;
+	marker_handle_t nm;
 
 	m = d.markers;
 	while (m) {
@@ -112,7 +113,7 @@ struct data data_append_data(struct data d, const void *p, int len)
 	return d;
 }
 
-struct data data_insert_at_marker(struct data d, struct marker *m,
+struct data data_insert_at_marker(struct data d, marker_handle_t m,
 				  const void *p, int len)
 {
 	d = data_grow_for(d, len);
@@ -127,9 +128,9 @@ struct data data_insert_at_marker(struct data d, struct marker *m,
 	return d;
 }
 
-static struct data data_append_markers(struct data d, struct marker *m)
+static struct data data_append_markers(struct data d, marker_handle_t m)
 {
-	struct marker **mp = &d.markers;
+	marker_handle_t *mp = &d.markers;
 
 	/* Find the end of the markerlist */
 	while (*mp)
@@ -141,7 +142,7 @@ static struct data data_append_markers(struct data d, struct marker *m)
 struct data data_merge(struct data d1, struct data d2)
 {
 	struct data d;
-	struct marker *m2 = d2.markers;
+	marker_handle_t m2 = d2.markers;
 
 	d = data_append_markers(data_append_data(d1, d2.val, d2.len), m2);
 
@@ -226,7 +227,7 @@ struct data data_append_align(struct data d, int align)
 
 struct data data_add_marker(struct data d, enum markertype type, char *ref)
 {
-	struct marker *m;
+	marker_handle_t m;
 
 	m = xmalloc(sizeof(*m));
 	m->offset = d.len;

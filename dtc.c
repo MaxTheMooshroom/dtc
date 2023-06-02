@@ -8,20 +8,6 @@
 #include "dtc.h"
 #include "srcpos.h"
 
-/*
- * Command line options
- */
-int quiet;		/* Level of quietness */
-unsigned int reservenum;/* Number of memory reservation slots */
-int minsize;		/* Minimum blob size */
-int padsize;		/* Additional padding to blob */
-int alignsize;		/* Additional padding to blob accroding to the alignsize */
-int phandle_format = PHANDLE_EPAPR;	/* Use linux,phandle or phandle properties */
-int generate_symbols;	/* enable symbols & fixup support */
-int generate_fixups;		/* suppress generation of fixups on symbol support */
-int auto_label_aliases;		/* auto generate labels -> aliases */
-int annotate;		/* Level of annotation: 1 for input source location
-			   >1 for full input source location. */
 
 static int is_power_of_2(int x)
 {
@@ -76,9 +62,10 @@ static struct option const usage_long_opts[] = {
 static const char * const usage_opts_help[] = {
 	"\n\tQuiet: -q suppress warnings, -qq errors, -qqq all",
 	"\n\tInput formats are:\n"
-	 "\t\tdts - device tree source text\n"
-	 "\t\tdtb - device tree blob\n"
-	 "\t\tfs  - /proc/device-tree style directory",
+	 "\t\tdts  - device tree source text\n"
+	 "\t\tdtsi - device tree source include text\n"
+	 "\t\tdtb  - device tree blob\n"
+	 "\t\tfs   - /proc/device-tree style directory",
 	"\n\tOutput file",
 	"\n\tOutput formats are:\n"
 	 "\t\tdts - device tree source text\n"
@@ -162,6 +149,8 @@ static const char *guess_input_format(const char *fname, const char *fallback)
 int main(int argc, char *argv[])
 {
 	struct dt_info *dti;
+	dtc_options_handle_t options = xmalloc(sizeof(*options));
+
 	const char *inform = NULL;
 	const char *outform = NULL;
 	const char *outname = "-";
@@ -173,11 +162,11 @@ int main(int argc, char *argv[])
 	int outversion = DEFAULT_FDT_VERSION;
 	long long cmdline_boot_cpuid = -1;
 
-	quiet      = 0;
-	reservenum = 0;
-	minsize    = 0;
-	padsize    = 0;
-	alignsize  = 0;
+	options->quiet      = 0;
+	options->reservenum = 0;
+	options->minsize    = 0;
+	options->padsize    = 0;
+	options->alignsize  = 0;
 
 	while ((opt = util_getopt_long()) != EOF) {
 		switch (opt) {
@@ -197,25 +186,25 @@ int main(int argc, char *argv[])
 			depname = optarg;
 			break;
 		case 'R':
-			reservenum = strtoul(optarg, NULL, 0);
+			options->reservenum = strtoul(optarg, NULL, 0);
 			break;
 		case 'S':
-			minsize = strtol(optarg, NULL, 0);
+			options->minsize = strtol(optarg, NULL, 0);
 			break;
 		case 'p':
-			padsize = strtol(optarg, NULL, 0);
+			options->padsize = strtol(optarg, NULL, 0);
 			break;
 		case 'a':
-			alignsize = strtol(optarg, NULL, 0);
-			if (!is_power_of_2(alignsize))
+			options->alignsize = strtol(optarg, NULL, 0);
+			if (!is_power_of_2(options->alignsize))
 				die("Invalid argument \"%d\" to -a option\n",
-				    alignsize);
+				    options->alignsize);
 			break;
 		case 'f':
 			force = true;
 			break;
 		case 'q':
-			quiet++;
+			options->quiet++;
 			break;
 		case 'b':
 			cmdline_boot_cpuid = strtoll(optarg, NULL, 0);
@@ -227,11 +216,11 @@ int main(int argc, char *argv[])
 			util_version();
 		case 'H':
 			if (streq(optarg, "legacy"))
-				phandle_format = PHANDLE_LEGACY;
+				options->phandle_format = PHANDLE_LEGACY;
 			else if (streq(optarg, "epapr"))
-				phandle_format = PHANDLE_EPAPR;
+				options->phandle_format = PHANDLE_EPAPR;
 			else if (streq(optarg, "both"))
-				phandle_format = PHANDLE_BOTH;
+				options->phandle_format = PHANDLE_BOTH;
 			else
 				die("Invalid argument \"%s\" to -H option\n",
 				    optarg);
@@ -250,13 +239,13 @@ int main(int argc, char *argv[])
 			break;
 
 		case '@':
-			generate_symbols = 1;
+			options->generate_symbols = 1;
 			break;
 		case 'A':
-			auto_label_aliases = 1;
+			options->auto_label_aliases = 1;
 			break;
 		case 'T':
-			annotate++;
+			options->annotate++;
 			break;
 
 		case 'h':
@@ -274,7 +263,7 @@ int main(int argc, char *argv[])
 		arg = argv[optind];
 
 	/* minsize and padsize are mutually exclusive */
-	if (minsize && padsize)
+	if (options->minsize && options->padsize)
 		die("Can't set both -p and -S\n");
 
 	if (depname) {
@@ -296,7 +285,7 @@ int main(int argc, char *argv[])
 				outform = "dts";
 		}
 	}
-	if (annotate && (!streq(inform, "dts") || !streq(outform, "dts")))
+	if (options->annotate && (!streq(inform, "dts") || !streq(outform, "dts")))
 		die("--annotate requires -I dts -O dts\n");
 	if (streq(inform, "dts"))
 		dti = dt_from_source(arg);
@@ -321,18 +310,18 @@ int main(int argc, char *argv[])
 
 	/* on a plugin, generate by default */
 	if (dti->dtsflags & DTSF_PLUGIN) {
-		generate_fixups = 1;
+		options->generate_fixups = 1;
 	}
 
-	process_checks(force, dti);
+	process_checks(force, dti, options);
 
-	if (auto_label_aliases)
-		generate_label_tree(dti, "aliases", false);
+	if (options->auto_label_aliases)
+		generate_label_tree(dti, "aliases", options, false);
 
-	if (generate_symbols)
-		generate_label_tree(dti, "__symbols__", true);
+	if (options->generate_symbols)
+		generate_label_tree(dti, "__symbols__", options, true);
 
-	if (generate_fixups) {
+	if (options->generate_fixups) {
 		generate_fixups_tree(dti, "__fixups__");
 		generate_local_fixups_tree(dti, "__local_fixups__");
 	}
@@ -350,17 +339,17 @@ int main(int argc, char *argv[])
 	}
 
 	if (streq(outform, "dts")) {
-		dt_to_source(outf, dti);
+		dt_to_source(outf, dti, options);
 #ifndef NO_YAML
 	} else if (streq(outform, "yaml")) {
 		if (!streq(inform, "dts"))
 			die("YAML output format requires dts input format\n");
-		dt_to_yaml(outf, dti);
+		dt_to_yaml(outf, dti, options);
 #endif
 	} else if (streq(outform, "dtb")) {
-		dt_to_blob(outf, dti, outversion);
+		dt_to_blob(outf, dti, outversion, options);
 	} else if (streq(outform, "asm")) {
-		dt_to_asm(outf, dti, outversion);
+		dt_to_asm(outf, dti, outversion, options);
 	} else if (streq(outform, "null")) {
 		/* do nothing */
 	} else {

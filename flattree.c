@@ -151,7 +151,7 @@ static void asm_emit_data(void *e, struct data d)
 {
 	FILE *f = e;
 	unsigned int off = 0;
-	struct marker *m = d.markers;
+	marker_handle_t m = d.markers;
 
 	for_each_marker_of_type(m, LABEL)
 		emit_offset_label(f, m->ref, m->offset);
@@ -292,7 +292,7 @@ static void flatten_tree(struct node *tree, struct emitter *emit,
 }
 
 static struct data flatten_reserve_list(struct reserve_info *reservelist,
-				 struct version_info *vi)
+				 struct version_info *vi, dtc_options_handle_t options)
 {
 	struct reserve_info *re;
 	struct data d = empty_data;
@@ -304,7 +304,7 @@ static struct data flatten_reserve_list(struct reserve_info *reservelist,
 	/*
 	 * Add additional reserved slots if the user asked for them.
 	 */
-	for (j = 0; j < reservenum; j++) {
+	for (j = 0; j < options->reservenum; j++) {
 		d = data_append_re(d, 0, 0);
 	}
 
@@ -343,7 +343,7 @@ static void make_fdt_header(struct fdt_header *fdt,
 		fdt->size_dt_struct = cpu_to_fdt32(dtsize);
 }
 
-void dt_to_blob(FILE *f, struct dt_info *dti, int version)
+void dt_to_blob(FILE *f, struct dt_info *dti, int version, dtc_options_handle_t options)
 {
 	struct version_info *vi = NULL;
 	unsigned int i;
@@ -364,7 +364,7 @@ void dt_to_blob(FILE *f, struct dt_info *dti, int version)
 	flatten_tree(dti->dt, &bin_emitter, &dtbuf, &strbuf, vi);
 	bin_emit_cell(&dtbuf, FDT_END);
 
-	reservebuf = flatten_reserve_list(dti->reservelist, vi);
+	reservebuf = flatten_reserve_list(dti->reservelist, vi, options);
 
 	/* Make header */
 	make_fdt_header(&fdt, vi, reservebuf.len, dtbuf.len, strbuf.len,
@@ -373,22 +373,22 @@ void dt_to_blob(FILE *f, struct dt_info *dti, int version)
 	/*
 	 * If the user asked for more space than is used, adjust the totalsize.
 	 */
-	if (minsize > 0) {
-		padlen = minsize - fdt32_to_cpu(fdt.totalsize);
+	if (options->minsize > 0) {
+		padlen = options->minsize - fdt32_to_cpu(fdt.totalsize);
 		if (padlen < 0) {
 			padlen = 0;
-			if (quiet < 1)
+			if (options->quiet < 1)
 				fprintf(stderr,
 					"Warning: blob size %"PRIu32" >= minimum size %d\n",
-					fdt32_to_cpu(fdt.totalsize), minsize);
+					fdt32_to_cpu(fdt.totalsize), options->minsize);
 		}
 	}
 
-	if (padsize > 0)
-		padlen = padsize;
+	if (options->padsize > 0)
+		padlen = options->padsize;
 
-	if (alignsize > 0)
-		padlen = ALIGN(fdt32_to_cpu(fdt.totalsize) + padlen, alignsize)
+	if (options->alignsize > 0)
+		padlen = ALIGN(fdt32_to_cpu(fdt.totalsize) + padlen, options->alignsize)
 			- fdt32_to_cpu(fdt.totalsize);
 
 	if (padlen > 0) {
@@ -444,7 +444,7 @@ static void dump_stringtable_asm(FILE *f, struct data strbuf)
 	}
 }
 
-void dt_to_asm(FILE *f, struct dt_info *dti, int version)
+void dt_to_asm(FILE *f, struct dt_info *dti, int version, dtc_options_handle_t options)
 {
 	struct version_info *vi = NULL;
 	unsigned int i;
@@ -527,7 +527,7 @@ void dt_to_asm(FILE *f, struct dt_info *dti, int version)
 		ASM_EMIT_BELONG(f, "0x%08x", (unsigned int)(re->size >> 32));
 		ASM_EMIT_BELONG(f, "0x%08x", (unsigned int)(re->size & 0xffffffff));
 	}
-	for (i = 0; i < reservenum; i++) {
+	for (i = 0; i < options->reservenum; i++) {
 		fprintf(f, "\t.long\t0, 0\n\t.long\t0, 0\n");
 	}
 
@@ -549,15 +549,15 @@ void dt_to_asm(FILE *f, struct dt_info *dti, int version)
 	/*
 	 * If the user asked for more space than is used, pad it out.
 	 */
-	if (minsize > 0) {
+	if (options->minsize > 0) {
 		fprintf(f, "\t.space\t%d - (_%s_blob_end - _%s_blob_start), 0\n",
-			minsize, symprefix, symprefix);
+			options->minsize, symprefix, symprefix);
 	}
-	if (padsize > 0) {
-		fprintf(f, "\t.space\t%d, 0\n", padsize);
+	if (options->padsize > 0) {
+		fprintf(f, "\t.space\t%d, 0\n", options->padsize);
 	}
-	if (alignsize > 0)
-		asm_emit_align(f, alignsize);
+	if (options->alignsize > 0)
+		asm_emit_align(f, options->alignsize);
 	emit_label(f, symprefix, "blob_abs_end");
 
 	data_free(strbuf);

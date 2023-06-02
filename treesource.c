@@ -143,7 +143,7 @@ static enum markertype guess_value_type(struct property *prop)
 {
 	int len = prop->val.len;
 	const char *p = prop->val.val;
-	struct marker *m = prop->val.markers;
+	marker_handle_t m = prop->val.markers;
 	int nnotstring = 0, nnul = 0;
 	int nnotstringlbl = 0, nnotcelllbl = 0;
 	int i;
@@ -172,11 +172,11 @@ static enum markertype guess_value_type(struct property *prop)
 	return TYPE_UINT8;
 }
 
-static void write_propval(FILE *f, struct property *prop)
+static void write_propval(FILE *f, struct property *prop, int annotate)
 {
 	size_t len = prop->val.len;
-	struct marker *m = prop->val.markers;
-	struct marker dummy_marker;
+	marker_handle_t m = prop->val.markers;
+	marker_raw_t dummy_marker;
 	enum markertype emit_type = TYPE_NONE;
 	char *srcstr;
 
@@ -208,7 +208,7 @@ static void write_propval(FILE *f, struct property *prop)
 		size_t chunk_len = (m->next ? m->next->offset : len) - m->offset;
 		size_t data_len = type_marker_length(m) ? : len - m->offset;
 		const char *p = &prop->val.val[m->offset];
-		struct marker *m_phandle;
+		marker_handle_t m_phandle;
 
 		if (is_type_marker(m->type)) {
 			emit_type = m->type;
@@ -270,7 +270,7 @@ static void write_propval(FILE *f, struct property *prop)
 	fprintf(f, "\n");
 }
 
-static void write_tree_source_node(FILE *f, struct node *tree, int level)
+static void write_tree_source_node(FILE *f, struct node *tree, int level, int annotate)
 {
 	struct property *prop;
 	struct node *child;
@@ -299,11 +299,11 @@ static void write_tree_source_node(FILE *f, struct node *tree, int level)
 		for_each_label(prop->labels, l)
 			fprintf(f, "%s: ", l->label);
 		fprintf(f, "%s", prop->name);
-		write_propval(f, prop);
+		write_propval(f, prop, annotate);
 	}
 	for_each_child(tree, child) {
 		fprintf(f, "\n");
-		write_tree_source_node(f, child, level+1);
+		write_tree_source_node(f, child, level+1, annotate);
 	}
 	write_prefix(f, level);
 	fprintf(f, "};");
@@ -317,7 +317,7 @@ static void write_tree_source_node(FILE *f, struct node *tree, int level)
 	fprintf(f, "\n");
 }
 
-void dt_to_source(FILE *f, struct dt_info *dti)
+void dt_to_source(FILE *f, struct dt_info *dti, dtc_options_handle_t options)
 {
 	struct reserve_info *re;
 
@@ -333,5 +333,5 @@ void dt_to_source(FILE *f, struct dt_info *dti)
 			(unsigned long long)re->size);
 	}
 
-	write_tree_source_node(f, dti->dt, 0);
+	write_tree_source_node(f, dti->dt, 0, options->annotate);
 }

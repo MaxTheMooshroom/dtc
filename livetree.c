@@ -470,10 +470,10 @@ struct property *get_property_by_label(struct node *tree, const char *label,
 	return NULL;
 }
 
-struct marker *get_marker_label(struct node *tree, const char *label,
+marker_handle_t get_marker_label(struct node *tree, const char *label,
 				struct node **node, struct property **prop)
 {
-	struct marker *m;
+	marker_handle_t m;
 	struct property *p;
 	struct node *c;
 
@@ -555,12 +555,12 @@ struct node *get_node_by_label(struct node *tree, const char *label)
 	return NULL;
 }
 
-struct node *get_node_by_phandle(struct node *tree, cell_t phandle)
+struct node *get_node_by_phandle(struct node *tree, cell_t phandle, dtc_options_handle_t options)
 {
 	struct node *child, *node;
 
 	if (!phandle_is_valid(phandle)) {
-		assert(generate_fixups);
+		assert(options->generate_fixups);
 		return NULL;
 	}
 
@@ -571,7 +571,7 @@ struct node *get_node_by_phandle(struct node *tree, cell_t phandle)
 	}
 
 	for_each_child(tree, child) {
-		node = get_node_by_phandle(child, phandle);
+		node = get_node_by_phandle(child, phandle, options);
 		if (node)
 			return node;
 	}
@@ -616,7 +616,7 @@ struct node *get_node_by_ref(struct node *tree, const char *ref)
 	return target;
 }
 
-cell_t get_node_phandle(struct node *root, struct node *node)
+cell_t get_node_phandle(struct node *root, struct node *node, dtc_options_handle_t options)
 {
 	static cell_t phandle = 1; /* FIXME: ick, static local */
 	struct data d = empty_data;
@@ -624,7 +624,7 @@ cell_t get_node_phandle(struct node *root, struct node *node)
 	if (phandle_is_valid(node->phandle))
 		return node->phandle;
 
-	while (get_node_by_phandle(root, phandle))
+	while (get_node_by_phandle(root, phandle, options))
 		phandle++;
 
 	node->phandle = phandle;
@@ -633,11 +633,11 @@ cell_t get_node_phandle(struct node *root, struct node *node)
 	d = data_append_cell(d, phandle);
 
 	if (!get_property(node, "linux,phandle")
-	    && (phandle_format & PHANDLE_LEGACY))
+	    && (options->phandle_format & PHANDLE_LEGACY))
 		add_property(node, build_property("linux,phandle", d, NULL));
 
 	if (!get_property(node, "phandle")
-	    && (phandle_format & PHANDLE_EPAPR))
+	    && (options->phandle_format & PHANDLE_EPAPR))
 		add_property(node, build_property("phandle", d, NULL));
 
 	/* If the node *does* have a phandle property, we must
@@ -849,6 +849,7 @@ static bool any_label_tree(struct dt_info *dti, struct node *node)
 
 static void generate_label_tree_internal(struct dt_info *dti,
 					 struct node *an, struct node *node,
+					 dtc_options_handle_t options,
 					 bool allocph)
 {
 	struct node *dt = dti->dt;
@@ -881,18 +882,18 @@ static void generate_label_tree_internal(struct dt_info *dti,
 
 		/* force allocation of a phandle for this node */
 		if (allocph)
-			(void)get_node_phandle(dt, node);
+			(void)get_node_phandle(dt, node, options);
 	}
 
 	for_each_child(node, c)
-		generate_label_tree_internal(dti, an, c, allocph);
+		generate_label_tree_internal(dti, an, c, options, allocph);
 }
 
 static bool any_fixup_tree(struct dt_info *dti, struct node *node)
 {
 	struct node *c;
 	struct property *prop;
-	struct marker *m;
+	marker_handle_t m;
 
 	for_each_property(node, prop) {
 		m = prop->val.markers;
@@ -912,7 +913,7 @@ static bool any_fixup_tree(struct dt_info *dti, struct node *node)
 
 static void add_fixup_entry(struct dt_info *dti, struct node *fn,
 			    struct node *node, struct property *prop,
-			    struct marker *m)
+			    marker_handle_t m)
 {
 	char *entry;
 
@@ -943,7 +944,7 @@ static void generate_fixups_tree_internal(struct dt_info *dti,
 	struct node *dt = dti->dt;
 	struct node *c;
 	struct property *prop;
-	struct marker *m;
+	marker_handle_t m;
 	struct node *refnode;
 
 	for_each_property(node, prop) {
@@ -963,7 +964,7 @@ static bool any_local_fixup_tree(struct dt_info *dti, struct node *node)
 {
 	struct node *c;
 	struct property *prop;
-	struct marker *m;
+	marker_handle_t m;
 
 	for_each_property(node, prop) {
 		m = prop->val.markers;
@@ -983,7 +984,7 @@ static bool any_local_fixup_tree(struct dt_info *dti, struct node *node)
 
 static void add_local_fixup_entry(struct dt_info *dti,
 		struct node *lfn, struct node *node,
-		struct property *prop, struct marker *m,
+		struct property *prop, marker_handle_t m,
 		struct node *refnode)
 {
 	struct node *wn, *nwn;	/* local fixup node, walk node, new */
@@ -1024,7 +1025,7 @@ static void generate_local_fixups_tree_internal(struct dt_info *dti,
 	struct node *dt = dti->dt;
 	struct node *c;
 	struct property *prop;
-	struct marker *m;
+	marker_handle_t m;
 	struct node *refnode;
 
 	for_each_property(node, prop) {
@@ -1040,12 +1041,12 @@ static void generate_local_fixups_tree_internal(struct dt_info *dti,
 		generate_local_fixups_tree_internal(dti, lfn, c);
 }
 
-void generate_label_tree(struct dt_info *dti, char *name, bool allocph)
+void generate_label_tree(struct dt_info *dti, char *name, dtc_options_handle_t options, bool allocph)
 {
 	if (!any_label_tree(dti, dti->dt))
 		return;
 	generate_label_tree_internal(dti, build_root_node(dti->dt, name),
-				     dti->dt, allocph);
+				     dti->dt, options, allocph);
 }
 
 void generate_fixups_tree(struct dt_info *dti, char *name)

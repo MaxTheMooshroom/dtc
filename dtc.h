@@ -31,19 +31,20 @@
 
 #define DEFAULT_FDT_VERSION	17
 
-/*
- * Command line options
- */
-extern int quiet;		/* Level of quietness */
-extern unsigned int reservenum;	/* Number of memory reservation slots */
-extern int minsize;		/* Minimum blob size */
-extern int padsize;		/* Additional padding to blob */
-extern int alignsize;		/* Additional padding to blob accroding to the alignsize */
-extern int phandle_format;	/* Use linux,phandle or phandle properties */
-extern int generate_symbols;	/* generate symbols for nodes with labels */
-extern int generate_fixups;	/* generate fixups */
-extern int auto_label_aliases;	/* auto generate labels -> aliases */
-extern int annotate;		/* annotate .dts with input source location */
+
+typedef struct dtc_options {
+	int quiet;					/* Level of quietness */
+	unsigned int reservenum;	/* Number of memory reservation slots */
+	int minsize;				/* Minimum blob size */
+	int padsize;				/* Additional padding to blob */
+	int alignsize;				/* Additional padding to blob accroding to the alignsize */
+	int phandle_format;			/* Use linux,phandle or phandle properties */
+	int generate_symbols;		/* generate symbols for nodes with labels */
+	int generate_fixups;		/* generate fixups */
+	int auto_label_aliases;		/* auto generate labels -> aliases */
+	int annotate;				/* annotate .dts with input source location */
+} dtc_options_raw_t;
+typedef dtc_options_raw_t* dtc_options_handle_t;
 
 #define PHANDLE_LEGACY	0x1
 #define PHANDLE_EPAPR	0x2
@@ -124,21 +125,25 @@ static inline bool is_type_marker(enum markertype type)
 
 extern const char *markername(enum markertype markertype);
 
-struct  marker {
+typedef struct marker marker_raw_t;
+typedef marker_raw_t* marker_handle_t;
+struct marker {
 	enum markertype type;
 	unsigned int offset;
 	char *ref;
-	struct marker *next;
+	marker_handle_t next;
 };
 
-struct data {
+
+typedef struct data {
 	unsigned int len;
 	char *val;
-	struct marker *markers;
-};
+	marker_handle_t markers;
+} data_raw_t;
+typedef data_raw_t* data_handle_t;
 
 
-#define empty_data ((struct data){ 0 /* all .members = 0 or NULL */ })
+#define empty_data ((data_raw_t){ 0 /* all .members = 0 or NULL */ })
 
 #define for_each_marker(m) \
 	for (; (m); (m) = (m)->next)
@@ -146,7 +151,7 @@ struct data {
 	for_each_marker(m) \
 		if ((m)->type == (t))
 
-static inline struct marker *next_type_marker(struct marker *m)
+static inline marker_handle_t next_type_marker(marker_handle_t m)
 {
 	for_each_marker(m)
 		if (is_type_marker(m->type))
@@ -154,9 +159,9 @@ static inline struct marker *next_type_marker(struct marker *m)
 	return m;
 }
 
-static inline size_t type_marker_length(struct marker *m)
+static inline size_t type_marker_length(marker_handle_t m)
 {
-	struct marker *next = next_type_marker(m->next);
+	marker_handle_t next = next_type_marker(m->next);
 
 	if (next)
 		return next->offset - m->offset;
@@ -172,7 +177,7 @@ struct data data_copy_escape_string(const char *s, int len);
 struct data data_copy_file(FILE *f, size_t len);
 
 struct data data_append_data(struct data d, const void *p, int len);
-struct data data_insert_at_marker(struct data d, struct marker *m,
+struct data data_insert_at_marker(struct data d, marker_handle_t m,
 				  const void *p, int len);
 struct data data_merge(struct data d1, struct data d2);
 struct data data_append_cell(struct data d, cell_t word);
@@ -292,14 +297,14 @@ cell_t propval_cell(struct property *prop);
 cell_t propval_cell_n(struct property *prop, unsigned int n);
 struct property *get_property_by_label(struct node *tree, const char *label,
 				       struct node **node);
-struct marker *get_marker_label(struct node *tree, const char *label,
+marker_handle_t get_marker_label(struct node *tree, const char *label,
 				struct node **node, struct property **prop);
 struct node *get_subnode(struct node *node, const char *nodename);
 struct node *get_node_by_path(struct node *tree, const char *path);
 struct node *get_node_by_label(struct node *tree, const char *label);
-struct node *get_node_by_phandle(struct node *tree, cell_t phandle);
+struct node *get_node_by_phandle(struct node *tree, cell_t phandle, dtc_options_handle_t options);
 struct node *get_node_by_ref(struct node *tree, const char *ref);
-cell_t get_node_phandle(struct node *root, struct node *node);
+cell_t get_node_phandle(struct node *root, struct node *node, dtc_options_handle_t options);
 
 uint32_t guess_boot_cpuid(struct node *tree);
 
@@ -336,30 +341,30 @@ struct dt_info *build_dt_info(unsigned int dtsflags,
 			      struct reserve_info *reservelist,
 			      struct node *tree, uint32_t boot_cpuid_phys);
 void sort_tree(struct dt_info *dti);
-void generate_label_tree(struct dt_info *dti, char *name, bool allocph);
+void generate_label_tree(struct dt_info *dti, char *name, dtc_options_handle_t options, bool allocph);
 void generate_fixups_tree(struct dt_info *dti, char *name);
 void generate_local_fixups_tree(struct dt_info *dti, char *name);
 
 /* Checks */
 
 void parse_checks_option(bool warn, bool error, const char *arg);
-void process_checks(bool force, struct dt_info *dti);
+void process_checks(bool force, struct dt_info *dti, dtc_options_handle_t options);
 
 /* Flattened trees */
 
-void dt_to_blob(FILE *f, struct dt_info *dti, int version);
-void dt_to_asm(FILE *f, struct dt_info *dti, int version);
+void dt_to_blob(FILE *f, struct dt_info *dti, int version, dtc_options_handle_t options);
+void dt_to_asm(FILE *f, struct dt_info *dti, int version, dtc_options_handle_t options);
 
 struct dt_info *dt_from_blob(const char *fname);
 
 /* Tree source */
 
-void dt_to_source(FILE *f, struct dt_info *dti);
+void dt_to_source(FILE *f, struct dt_info *dti, dtc_options_handle_t options);
 struct dt_info *dt_from_source(const char *f);
 
 /* YAML source */
 
-void dt_to_yaml(FILE *f, struct dt_info *dti);
+void dt_to_yaml(FILE *f, struct dt_info *dti, dtc_options_handle_t options);
 
 /* FS trees */
 
