@@ -1,3 +1,31 @@
+# libdtc
+
+This specific repo exists as a place for proposed changes to dtc. Those changes are:
+- [X] moving configuration options into a struct for per-operation configuration
+  - [X] write struct
+  - [X] Find all locations where the old global variables were used by dtc and replace them with config struct pointers `dtc_options_handle_t`. 
+- [ ] typedef'ing various structs 
+  - [ ] typedef the structs
+    - WIP
+  - [ ] modify function signatures to use the typedefs instead of `struct x` or `struct x *y`
+- [ ] altering some functions so that the upcoming API implementation isn't built on the assumption of being a one-and-done program
+- [ ] add to and modify existing documentation for the functions updated as a part of the previous step
+- [ ] add a C API for dtc
+- [ ] add make target for building a "libdtc" library and add to target `clean`
+- [ ] add to and modify existing documentation for libdtc
+- [ ] apply the above changes to libfdt and pylibfdt
+- [ ] add a Python API wrapper for libdtc, "pylibdtc"
+  - [ ] Add mapping from C structs to python `ctypes.Structure` classes as `libdtc.structs` module
+    - exists already, but has not yet been added to the repo
+  - [ ] Add a wrapper class `DeviceTree` containing methods for interacting with C device trees
+  - [ ] update `setup.py` to build pylibdtc
+  - ![#ff0000](https://placehold.co/15x15/ff0000/ff0000.png) How pylibfdt fits into this hasn't yet been decided
+
+"libdtc" is developed and maintained by:
+
+* [Maxine Alexander `<max.alexander3721@gmail.com>`](mailto:max.alexander3721@gmail.com)
+
+
 # Device Tree Compiler and libfdt
 
 The source tree contains the Device Tree Compiler (dtc) toolchain for
@@ -7,6 +35,7 @@ utility library for reading and manipulating the binary format.
 dtc and libfdt are maintained by:
 
 * [David Gibson `<david@gibson.dropbear.id.au>`](mailto:david@gibson.dropbear.id.au)
+
 
 ## Python library
 
