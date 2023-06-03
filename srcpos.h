@@ -10,16 +10,17 @@
 #include <stdbool.h>
 #include "util.h"
 
-struct srcfile_state {
+typedef struct srcfile_state_ srcfile_state_t;
+struct srcfile_state_ {
 	FILE *f;
 	char *name;
 	char *dir;
 	int lineno, colno;
-	struct srcfile_state *prev;
+	srcfile_state_t *prev;
 };
 
 extern FILE *depfile; /* = NULL */
-extern struct srcfile_state *current_srcfile; /* = NULL */
+extern srcfile_state_t *current_srcfile; /* = NULL */
 
 /**
  * Open a source file.
@@ -54,16 +55,17 @@ bool srcfile_pop(void);
  */
 void srcfile_add_search_path(const char *dirname);
 
+typedef struct srcpos srcpos_t;
 struct srcpos {
     int first_line;
     int first_column;
     int last_line;
     int last_column;
-    struct srcfile_state *file;
-    struct srcpos *next;
+    srcfile_state_t *file;
+    srcpos_t *next;
 };
 
-#define YYLTYPE struct srcpos
+#define YYLTYPE srcpos_t
 
 #define YYLLOC_DEFAULT(Current, Rhs, N)						\
 	do {									\
@@ -84,18 +86,18 @@ struct srcpos {
 	} while (0)
 
 
-extern void srcpos_update(struct srcpos *pos, const char *text, int len);
-extern struct srcpos *srcpos_copy(struct srcpos *pos);
-extern struct srcpos *srcpos_extend(struct srcpos *new_srcpos,
-				    struct srcpos *old_srcpos);
-extern char *srcpos_string(struct srcpos *pos);
-extern char *srcpos_string_first(struct srcpos *pos, int level);
-extern char *srcpos_string_last(struct srcpos *pos, int level);
+extern void srcpos_update(srcpos_t *pos, const char *text, int len);
+extern srcpos_t *srcpos_copy(srcpos_t *pos);
+extern srcpos_t *srcpos_extend(srcpos_t *new_srcpos,
+				    srcpos_t *old_srcpos);
+extern char *srcpos_string(srcpos_t *pos);
+extern char *srcpos_string_first(srcpos_t *pos, int level);
+extern char *srcpos_string_last(srcpos_t *pos, int level);
 
 
-extern void PRINTF(3, 0) srcpos_verror(struct srcpos *pos, const char *prefix,
+extern void PRINTF(3, 0) srcpos_verror(srcpos_t *pos, const char *prefix,
 					const char *fmt, va_list va);
-extern void PRINTF(3, 4) srcpos_error(struct srcpos *pos, const char *prefix,
+extern void PRINTF(3, 4) srcpos_error(srcpos_t *pos, const char *prefix,
 				      const char *fmt, ...);
 
 extern void srcpos_set_line(char *f, int l);

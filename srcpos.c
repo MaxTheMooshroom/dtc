@@ -11,13 +11,18 @@
 #include "srcpos.h"
 
 /* A node in our list of directories to search for source/include files */
+typedef struct search_path search_path_t;
 struct search_path {
-	struct search_path *next;	/* next node in list, NULL for end */
+	search_path_t *next;	/* next node in list, NULL for end */
 	const char *dirname;		/* name of directory to search */
 };
 
+struct dummy {
+	int num;
+};
+
 /* This is the list of directories that we search for source files */
-static struct search_path *search_path_head, **search_path_tail;
+static search_path_t *search_path_head, **search_path_tail;
 
 /* Detect infinite include recursion. */
 #define MAX_SRCFILE_DEPTH     (200)
@@ -39,7 +44,7 @@ static char *get_dirname(const char *path)
 }
 
 FILE *depfile; /* = NULL */
-struct srcfile_state *current_srcfile; /* = NULL */
+srcfile_state_t *current_srcfile; /* = NULL */
 static char *initial_path; /* = NULL */
 static int initial_pathlen; /* = 0 */
 static bool initial_cpp = true;
@@ -127,7 +132,7 @@ static char *try_open(const char *dirname, const char *fname, FILE **fp)
 static char *fopen_any_on_path(const char *fname, FILE **fp)
 {
 	const char *cur_dir = NULL;
-	struct search_path *node;
+	search_path_t *node;
 	char *fullname;
 
 	/* Try current directory first */
@@ -171,7 +176,7 @@ FILE *srcfile_relative_open(const char *fname, char **fullnamep)
 
 void srcfile_push(const char *fname)
 {
-	struct srcfile_state *srcfile;
+	srcfile_state_t *srcfile;
 
 	if (srcfile_depth++ >= MAX_SRCFILE_DEPTH)
 		die("Includes nested too deeply");
@@ -193,7 +198,7 @@ void srcfile_push(const char *fname)
 
 bool srcfile_pop(void)
 {
-	struct srcfile_state *srcfile = current_srcfile;
+	srcfile_state_t *srcfile = current_srcfile;
 
 	assert(srcfile);
 
@@ -214,7 +219,7 @@ bool srcfile_pop(void)
 
 void srcfile_add_search_path(const char *dirname)
 {
-	struct search_path *node;
+	search_path_t *node;
 
 	/* Create the node */
 	node = xmalloc(sizeof(*node));
@@ -229,7 +234,7 @@ void srcfile_add_search_path(const char *dirname)
 	search_path_tail = &node->next;
 }
 
-void srcpos_update(struct srcpos *pos, const char *text, int len)
+void srcpos_update(srcpos_t *pos, const char *text, int len)
 {
 	int i;
 
@@ -250,30 +255,30 @@ void srcpos_update(struct srcpos *pos, const char *text, int len)
 	pos->last_column = current_srcfile->colno;
 }
 
-struct srcpos *
-srcpos_copy(struct srcpos *pos)
+srcpos_t *
+srcpos_copy(srcpos_t *pos)
 {
-	struct srcpos *pos_new;
-	struct srcfile_state *srcfile_state;
+	srcpos_t *pos_new;
+	srcfile_state_t *srcfile_state;
 
 	if (!pos)
 		return NULL;
 
-	pos_new = xmalloc(sizeof(struct srcpos));
+	pos_new = xmalloc(sizeof(srcpos_t));
 	assert(pos->next == NULL);
-	memcpy(pos_new, pos, sizeof(struct srcpos));
+	memcpy(pos_new, pos, sizeof(srcpos_t));
 
 	/* allocate without free */
-	srcfile_state = xmalloc(sizeof(struct srcfile_state));
-	memcpy(srcfile_state, pos->file, sizeof(struct srcfile_state));
+	srcfile_state = xmalloc(sizeof(srcfile_state_t));
+	memcpy(srcfile_state, pos->file, sizeof(srcfile_state_t));
 	pos_new->file = srcfile_state;
 
 	return pos_new;
 }
 
-struct srcpos *srcpos_extend(struct srcpos *pos, struct srcpos *newtail)
+srcpos_t *srcpos_extend(srcpos_t *pos, srcpos_t *newtail)
 {
-	struct srcpos *p;
+	srcpos_t *p;
 
 	if (!pos)
 		return newtail;
@@ -284,7 +289,7 @@ struct srcpos *srcpos_extend(struct srcpos *pos, struct srcpos *newtail)
 }
 
 char *
-srcpos_string(struct srcpos *pos)
+srcpos_string(srcpos_t *pos)
 {
 	const char *fname = "<no-file>";
 	char *pos_str;
@@ -309,7 +314,7 @@ srcpos_string(struct srcpos *pos)
 }
 
 static char *
-srcpos_string_comment(struct srcpos *pos, bool first_line, int level)
+srcpos_string_comment(srcpos_t *pos, bool first_line, int level)
 {
 	char *pos_str, *fname, *first, *rest;
 	bool fresh_fname = false;
@@ -360,17 +365,17 @@ srcpos_string_comment(struct srcpos *pos, bool first_line, int level)
 	return pos_str;
 }
 
-char *srcpos_string_first(struct srcpos *pos, int level)
+char *srcpos_string_first(srcpos_t *pos, int level)
 {
 	return srcpos_string_comment(pos, true, level);
 }
 
-char *srcpos_string_last(struct srcpos *pos, int level)
+char *srcpos_string_last(srcpos_t *pos, int level)
 {
 	return srcpos_string_comment(pos, false, level);
 }
 
-void srcpos_verror(struct srcpos *pos, const char *prefix,
+void srcpos_verror(srcpos_t *pos, const char *prefix,
 		   const char *fmt, va_list va)
 {
 	char *srcstr;
@@ -384,7 +389,7 @@ void srcpos_verror(struct srcpos *pos, const char *prefix,
 	free(srcstr);
 }
 
-void srcpos_error(struct srcpos *pos, const char *prefix,
+void srcpos_error(srcpos_t *pos, const char *prefix,
 		  const char *fmt, ...)
 {
 	va_list va;

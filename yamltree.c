@@ -29,7 +29,7 @@ char *yaml_error_name[] = {
 		    (emitter)->problem, __func__, __LINE__);		\
 })
 
-static void yaml_propval_int(yaml_emitter_t *emitter, marker_handle_t markers,
+static void yaml_propval_int(yaml_emitter_t *emitter, marker_t *markers,
 	char *data, unsigned int seq_offset, unsigned int len, int width)
 {
 	yaml_event_t event;
@@ -52,7 +52,7 @@ static void yaml_propval_int(yaml_emitter_t *emitter, marker_handle_t markers,
 
 	for (off = 0; off < len; off += width) {
 		char buf[32];
-		marker_handle_t m;
+		marker_t *m;
 		bool is_phandle = false;
 
 		switch(width) {
@@ -114,8 +114,8 @@ static void yaml_propval(yaml_emitter_t *emitter, struct property *prop)
 {
 	yaml_event_t event;
 	unsigned int len = prop->val.len;
-	marker_handle_t m = prop->val.markers;
-	marker_handle_t markers = prop->val.markers;
+	marker_t *m = prop->val.markers;
+	marker_t *markers = prop->val.markers;
 
 	/* Emit the property name */
 	yaml_scalar_event_initialize(&event, NULL,
@@ -204,7 +204,7 @@ static void yaml_tree(struct node *tree, yaml_emitter_t *emitter)
 	yaml_emitter_emit_or_die(emitter, &event);
 }
 
-void dt_to_yaml(FILE *f, struct dt_info *dti, dtc_options_handle_t options)
+void dt_to_yaml(FILE *f, struct dt_info *dti)
 {
 	yaml_emitter_t emitter;
 	yaml_event_t event;

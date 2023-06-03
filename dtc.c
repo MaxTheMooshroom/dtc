@@ -6,7 +6,6 @@
 #include <sys/stat.h>
 
 #include "dtc.h"
-#include "srcpos.h"
 
 
 static int is_power_of_2(int x)
@@ -14,9 +13,9 @@ static int is_power_of_2(int x)
 	return (x > 0) && ((x & (x - 1)) == 0);
 }
 
-static void fill_fullpaths(struct node *tree, const char *prefix)
+static void fill_fullpaths(node_t *tree, const char *prefix)
 {
-	struct node *child;
+	node_t *child;
 	const char *unit;
 
 	tree->fullpath = join_path(prefix, tree->name);
@@ -148,8 +147,7 @@ static const char *guess_input_format(const char *fname, const char *fallback)
 
 int main(int argc, char *argv[])
 {
-	struct dt_info *dti;
-	dtc_options_handle_t options = xmalloc(sizeof(*options));
+	dt_info_t *dti = xmalloc(sizeof(*dti));
 
 	const char *inform = NULL;
 	const char *outform = NULL;
@@ -162,11 +160,11 @@ int main(int argc, char *argv[])
 	int outversion = DEFAULT_FDT_VERSION;
 	long long cmdline_boot_cpuid = -1;
 
-	options->quiet      = 0;
-	options->reservenum = 0;
-	options->minsize    = 0;
-	options->padsize    = 0;
-	options->alignsize  = 0;
+	dti->options.quiet      = 0;
+	dti->options.reservenum = 0;
+	dti->options.minsize    = 0;
+	dti->options.padsize    = 0;
+	dti->options.alignsize  = 0;
 
 	while ((opt = util_getopt_long()) != EOF) {
 		switch (opt) {
@@ -186,25 +184,25 @@ int main(int argc, char *argv[])
 			depname = optarg;
 			break;
 		case 'R':
-			options->reservenum = strtoul(optarg, NULL, 0);
+			dti->options.reservenum = strtoul(optarg, NULL, 0);
 			break;
 		case 'S':
-			options->minsize = strtol(optarg, NULL, 0);
+			dti->options.minsize = strtol(optarg, NULL, 0);
 			break;
 		case 'p':
-			options->padsize = strtol(optarg, NULL, 0);
+			dti->options.padsize = strtol(optarg, NULL, 0);
 			break;
 		case 'a':
-			options->alignsize = strtol(optarg, NULL, 0);
-			if (!is_power_of_2(options->alignsize))
+			dti->options.alignsize = strtol(optarg, NULL, 0);
+			if (!is_power_of_2(dti->options.alignsize))
 				die("Invalid argument \"%d\" to -a option\n",
-				    options->alignsize);
+				    dti->options.alignsize);
 			break;
 		case 'f':
 			force = true;
 			break;
 		case 'q':
-			options->quiet++;
+			dti->options.quiet++;
 			break;
 		case 'b':
 			cmdline_boot_cpuid = strtoll(optarg, NULL, 0);
@@ -216,11 +214,11 @@ int main(int argc, char *argv[])
 			util_version();
 		case 'H':
 			if (streq(optarg, "legacy"))
-				options->phandle_format = PHANDLE_LEGACY;
+				dti->options.phandle_format = PHANDLE_LEGACY;
 			else if (streq(optarg, "epapr"))
-				options->phandle_format = PHANDLE_EPAPR;
+				dti->options.phandle_format = PHANDLE_EPAPR;
 			else if (streq(optarg, "both"))
-				options->phandle_format = PHANDLE_BOTH;
+				dti->options.phandle_format = PHANDLE_BOTH;
 			else
 				die("Invalid argument \"%s\" to -H option\n",
 				    optarg);
@@ -239,13 +237,13 @@ int main(int argc, char *argv[])
 			break;
 
 		case '@':
-			options->generate_symbols = 1;
+			dti->options.generate_symbols = 1;
 			break;
 		case 'A':
-			options->auto_label_aliases = 1;
+			dti->options.auto_label_aliases = 1;
 			break;
 		case 'T':
-			options->annotate++;
+			dti->options.annotate++;
 			break;
 
 		case 'h':
@@ -263,7 +261,7 @@ int main(int argc, char *argv[])
 		arg = argv[optind];
 
 	/* minsize and padsize are mutually exclusive */
-	if (options->minsize && options->padsize)
+	if (dti->options.minsize && dti->options.padsize)
 		die("Can't set both -p and -S\n");
 
 	if (depname) {
@@ -285,14 +283,14 @@ int main(int argc, char *argv[])
 				outform = "dts";
 		}
 	}
-	if (options->annotate && (!streq(inform, "dts") || !streq(outform, "dts")))
+	if (dti->options.annotate && (!streq(inform, "dts") || !streq(outform, "dts")))
 		die("--annotate requires -I dts -O dts\n");
 	if (streq(inform, "dts"))
-		dti = dt_from_source(arg);
+		dt_from_source(arg, dti);
 	else if (streq(inform, "fs"))
-		dti = dt_from_fs(arg);
+		dt_from_fs(arg, dti);
 	else if(streq(inform, "dtb"))
-		dti = dt_from_blob(arg);
+		dt_from_blob(arg, dti);
 	else
 		die("Unknown input format \"%s\"\n", inform);
 
@@ -310,18 +308,18 @@ int main(int argc, char *argv[])
 
 	/* on a plugin, generate by default */
 	if (dti->dtsflags & DTSF_PLUGIN) {
-		options->generate_fixups = 1;
+		dti->options.generate_fixups = 1;
 	}
 
-	process_checks(force, dti, options);
+	process_checks(force, dti);
 
-	if (options->auto_label_aliases)
-		generate_label_tree(dti, "aliases", options, false);
+	if (dti->options.auto_label_aliases)
+		generate_label_tree(dti, "aliases", false);
 
-	if (options->generate_symbols)
-		generate_label_tree(dti, "__symbols__", options, true);
+	if (dti->options.generate_symbols)
+		generate_label_tree(dti, "__symbols__", true);
 
-	if (options->generate_fixups) {
+	if (dti->options.generate_fixups) {
 		generate_fixups_tree(dti, "__fixups__");
 		generate_local_fixups_tree(dti, "__local_fixups__");
 	}
@@ -339,17 +337,17 @@ int main(int argc, char *argv[])
 	}
 
 	if (streq(outform, "dts")) {
-		dt_to_source(outf, dti, options);
+		dt_to_source(outf, dti);
 #ifndef NO_YAML
 	} else if (streq(outform, "yaml")) {
 		if (!streq(inform, "dts"))
 			die("YAML output format requires dts input format\n");
-		dt_to_yaml(outf, dti, options);
+		dt_to_yaml(outf, dti);
 #endif
 	} else if (streq(outform, "dtb")) {
-		dt_to_blob(outf, dti, outversion, options);
+		dt_to_blob(outf, dti, outversion);
 	} else if (streq(outform, "asm")) {
-		dt_to_asm(outf, dti, outversion, options);
+		dt_to_asm(outf, dti, outversion);
 	} else if (streq(outform, "null")) {
 		/* do nothing */
 	} else {

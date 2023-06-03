@@ -7,28 +7,25 @@
 #include "srcpos.h"
 
 extern FILE *yyin;
-extern int yyparse(void);
+extern int yyparse(dt_info_t *dti, bool* treesource_error);
 extern YYLTYPE yylloc;
 
-struct dt_info *parser_output;
-bool treesource_error;
-
-struct dt_info *dt_from_source(const char *fname)
+void dt_from_source(const char *fname, dt_info_t *dti)
 {
-	parser_output = NULL;
-	treesource_error = false;
+	if (dti == NULL)
+		die("Attempted to construct tree using a null pointer");
+
+	bool treesource_error = false;
 
 	srcfile_push(fname);
 	yyin = current_srcfile->f;
 	yylloc.file = current_srcfile;
 
-	if (yyparse() != 0)
+	if (yyparse(dti, &treesource_error) != 0)
 		die("Unable to parse input tree\n");
 
 	if (treesource_error)
 		die("Syntax error parsing input tree\n");
-
-	return parser_output;
 }
 
 static void write_prefix(FILE *f, int level)
@@ -139,11 +136,11 @@ static const char *delim_end[] = {
 	[TYPE_STRING] = "",
 };
 
-static enum markertype guess_value_type(struct property *prop)
+static enum markertype guess_value_type(property_t *prop)
 {
 	int len = prop->val.len;
 	const char *p = prop->val.val;
-	marker_handle_t m = prop->val.markers;
+	marker_t *m = prop->val.markers;
 	int nnotstring = 0, nnul = 0;
 	int nnotstringlbl = 0, nnotcelllbl = 0;
 	int i;
@@ -172,11 +169,11 @@ static enum markertype guess_value_type(struct property *prop)
 	return TYPE_UINT8;
 }
 
-static void write_propval(FILE *f, struct property *prop, int annotate)
+static void write_propval(FILE *f, property_t *prop, int annotate)
 {
 	size_t len = prop->val.len;
-	marker_handle_t m = prop->val.markers;
-	marker_raw_t dummy_marker;
+	marker_t *m = prop->val.markers;
+	marker_t dummy_marker;
 	enum markertype emit_type = TYPE_NONE;
 	char *srcstr;
 
@@ -208,7 +205,7 @@ static void write_propval(FILE *f, struct property *prop, int annotate)
 		size_t chunk_len = (m->next ? m->next->offset : len) - m->offset;
 		size_t data_len = type_marker_length(m) ? : len - m->offset;
 		const char *p = &prop->val.val[m->offset];
-		marker_handle_t m_phandle;
+		marker_t *m_phandle;
 
 		if (is_type_marker(m->type)) {
 			emit_type = m->type;
@@ -270,11 +267,11 @@ static void write_propval(FILE *f, struct property *prop, int annotate)
 	fprintf(f, "\n");
 }
 
-static void write_tree_source_node(FILE *f, struct node *tree, int level, int annotate)
+static void write_tree_source_node(FILE *f, node_t *tree, int level, int annotate)
 {
-	struct property *prop;
-	struct node *child;
-	struct label *l;
+	property_t *prop;
+	node_t *child;
+	label_t *l;
 	char *srcstr;
 
 	write_prefix(f, level);
@@ -317,14 +314,14 @@ static void write_tree_source_node(FILE *f, struct node *tree, int level, int an
 	fprintf(f, "\n");
 }
 
-void dt_to_source(FILE *f, struct dt_info *dti, dtc_options_handle_t options)
+void dt_to_source(FILE *f, dt_info_t *dti)
 {
-	struct reserve_info *re;
+	reserve_info_t *re;
 
 	fprintf(f, "/dts-v1/;\n\n");
 
 	for (re = dti->reservelist; re; re = re->next) {
-		struct label *l;
+		label_t *l;
 
 		for_each_label(re->labels, l)
 			fprintf(f, "%s: ", l->label);
@@ -333,5 +330,5 @@ void dt_to_source(FILE *f, struct dt_info *dti, dtc_options_handle_t options)
 			(unsigned long long)re->size);
 	}
 
-	write_tree_source_node(f, dti->dt, 0, options->annotate);
+	write_tree_source_node(f, dti->dt, 0, dti->options.annotate);
 }

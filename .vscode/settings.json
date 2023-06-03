@@ -1,0 +1,7 @@
+{
+    "files.associations": {
+        "util.h": "c",
+        "srcpos.h": "c",
+        "dtc.h": "c"
+    }
+}
