@@ -591,5 +591,6 @@ subnode:
 
 void yyerror(dt_info_t *dti, bool *treesource_error, char const *s)
 {
+	YY_USE(dti);
 	ERROR(&yylloc, "%s", s);
 }
