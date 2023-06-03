@@ -21,6 +21,7 @@
 #include <libfdt_env.h>
 #include <fdt.h>
 
+#include "srcpos.h"
 #include "util.h"
 
 #ifdef DEBUG
@@ -30,21 +31,6 @@
 #endif
 
 #define DEFAULT_FDT_VERSION	17
-
-
-typedef struct dtc_options {
-	int quiet;					/* Level of quietness */
-	unsigned int reservenum;	/* Number of memory reservation slots */
-	int minsize;				/* Minimum blob size */
-	int padsize;				/* Additional padding to blob */
-	int alignsize;				/* Additional padding to blob accroding to the alignsize */
-	int phandle_format;			/* Use linux,phandle or phandle properties */
-	int generate_symbols;		/* generate symbols for nodes with labels */
-	int generate_fixups;		/* generate fixups */
-	int auto_label_aliases;		/* auto generate labels -> aliases */
-	int annotate;				/* annotate .dts with input source location */
-} dtc_options_raw_t;
-typedef dtc_options_raw_t* dtc_options_handle_t;
 
 #define PHANDLE_LEGACY	0x1
 #define PHANDLE_EPAPR	0x2
@@ -125,25 +111,23 @@ static inline bool is_type_marker(enum markertype type)
 
 extern const char *markername(enum markertype markertype);
 
-typedef struct marker marker_raw_t;
-typedef marker_raw_t* marker_handle_t;
+typedef struct marker marker_t;
 struct marker {
 	enum markertype type;
 	unsigned int offset;
 	char *ref;
-	marker_handle_t next;
+	marker_t *next;
 };
 
 
 typedef struct data {
 	unsigned int len;
 	char *val;
-	marker_handle_t markers;
-} data_raw_t;
-typedef data_raw_t* data_handle_t;
+	marker_t *markers;
+} data_t;
 
 
-#define empty_data ((data_raw_t){ 0 /* all .members = 0 or NULL */ })
+#define empty_data ((data_t){ 0 /* all .members = 0 or NULL */ })
 
 #define for_each_marker(m) \
 	for (; (m); (m) = (m)->next)
@@ -151,7 +135,7 @@ typedef data_raw_t* data_handle_t;
 	for_each_marker(m) \
 		if ((m)->type == (t))
 
-static inline marker_handle_t next_type_marker(marker_handle_t m)
+static inline marker_t *next_type_marker(marker_t *m)
 {
 	for_each_marker(m)
 		if (is_type_marker(m->type))
@@ -159,38 +143,38 @@ static inline marker_handle_t next_type_marker(marker_handle_t m)
 	return m;
 }
 
-static inline size_t type_marker_length(marker_handle_t m)
+static inline size_t type_marker_length(marker_t *m)
 {
-	marker_handle_t next = next_type_marker(m->next);
+	marker_t *next = next_type_marker(m->next);
 
 	if (next)
 		return next->offset - m->offset;
 	return 0;
 }
 
-void data_free(struct data d);
+void data_free(data_t d);
 
-struct data data_grow_for(struct data d, unsigned int xlen);
+data_t data_grow_for(data_t d, unsigned int xlen);
 
-struct data data_copy_mem(const char *mem, int len);
-struct data data_copy_escape_string(const char *s, int len);
-struct data data_copy_file(FILE *f, size_t len);
+data_t data_copy_mem(const char *mem, int len);
+data_t data_copy_escape_string(const char *s, int len);
+data_t data_copy_file(FILE *f, size_t len);
 
-struct data data_append_data(struct data d, const void *p, int len);
-struct data data_insert_at_marker(struct data d, marker_handle_t m,
+data_t data_append_data(data_t d, const void *p, int len);
+data_t data_insert_at_marker(data_t d, marker_t *m,
 				  const void *p, int len);
-struct data data_merge(struct data d1, struct data d2);
-struct data data_append_cell(struct data d, cell_t word);
-struct data data_append_integer(struct data d, uint64_t word, int bits);
-struct data data_append_re(struct data d, uint64_t address, uint64_t size);
-struct data data_append_addr(struct data d, uint64_t addr);
-struct data data_append_byte(struct data d, uint8_t byte);
-struct data data_append_zeroes(struct data d, int len);
-struct data data_append_align(struct data d, int align);
+data_t data_merge(data_t d1, data_t d2);
+data_t data_append_cell(data_t d, cell_t word);
+data_t data_append_integer(data_t d, uint64_t word, int bits);
+data_t data_append_re(data_t d, uint64_t address, uint64_t size);
+data_t data_append_addr(data_t d, uint64_t addr);
+data_t data_append_byte(data_t d, uint8_t byte);
+data_t data_append_zeroes(data_t d, int len);
+data_t data_append_align(data_t d, int align);
 
-struct data data_add_marker(struct data d, enum markertype type, char *ref);
+data_t data_add_marker(data_t d, enum markertype type, char *ref);
 
-bool data_is_one_string(struct data d);
+bool data_is_one_string(data_t d);
 
 /* DT constraints */
 
@@ -198,35 +182,38 @@ bool data_is_one_string(struct data d);
 #define MAX_NODENAME_LEN	31
 
 /* Live trees */
+typedef struct label label_t;
 struct label {
 	bool deleted;
 	char *label;
-	struct label *next;
+	label_t *next;
 };
 
-struct bus_type {
+typedef struct bus_type {
 	const char *name;
-};
+} bus_type_t;
 
+typedef struct property property_t;
 struct property {
 	bool deleted;
 	char *name;
-	struct data val;
+	data_t val;
 
-	struct property *next;
+	property_t *next;
 
-	struct label *labels;
-	struct srcpos *srcpos;
+	label_t *labels;
+	srcpos_t *srcpos;
 };
 
+typedef struct node node_t;
 struct node {
 	bool deleted;
 	char *name;
-	struct property *proplist;
-	struct node *children;
+	property_t *proplist;
+	node_t *children;
 
-	struct node *parent;
-	struct node *next_sibling;
+	node_t *parent;
+	node_t *next_sibling;
 
 	char *fullpath;
 	int basenamelen;
@@ -234,9 +221,9 @@ struct node {
 	cell_t phandle;
 	int addr_cells, size_cells;
 
-	struct label *labels;
-	const struct bus_type *bus;
-	struct srcpos *srcpos;
+	label_t *labels;
+	const bus_type_t *bus;
+	srcpos_t *srcpos;
 
 	bool omit_if_unused, is_referenced;
 };
@@ -262,112 +249,127 @@ struct node {
 	for_each_child_withdel(n, c) \
 		if (!(c)->deleted)
 
-void add_label(struct label **labels, char *label);
-void delete_labels(struct label **labels);
+void add_label(label_t **labels, char *label);
+void delete_labels(label_t **labels);
 
-struct property *build_property(char *name, struct data val,
-				struct srcpos *srcpos);
-struct property *build_property_delete(char *name);
-struct property *chain_property(struct property *first, struct property *list);
-struct property *reverse_properties(struct property *first);
+property_t *build_property(char *name, data_t val,
+				srcpos_t *srcpos);
+property_t *build_property_delete(char *name);
+property_t *chain_property(property_t *first, property_t *list);
+property_t *reverse_properties(property_t *first);
 
-struct node *build_node(struct property *proplist, struct node *children,
-			struct srcpos *srcpos);
-struct node *build_node_delete(struct srcpos *srcpos);
-struct node *name_node(struct node *node, char *name);
-struct node *omit_node_if_unused(struct node *node);
-struct node *reference_node(struct node *node);
-struct node *chain_node(struct node *first, struct node *list);
-struct node *merge_nodes(struct node *old_node, struct node *new_node);
-struct node *add_orphan_node(struct node *old_node, struct node *new_node, char *ref);
+node_t *build_node(property_t *proplist, node_t *children,
+			srcpos_t *srcpos);
+node_t *build_node_delete(srcpos_t *srcpos);
+node_t *name_node(node_t *node, char *name);
+node_t *omit_node_if_unused(node_t *node);
+node_t *reference_node(node_t *node);
+node_t *chain_node(node_t *first, node_t *list);
+node_t *merge_nodes(node_t *old_node, node_t *new_node);
+node_t *add_orphan_node(node_t *old_node, node_t *new_node, char *ref);
 
-void add_property(struct node *node, struct property *prop);
-void delete_property_by_name(struct node *node, char *name);
-void delete_property(struct property *prop);
-void add_child(struct node *parent, struct node *child);
-void delete_node_by_name(struct node *parent, char *name);
-void delete_node(struct node *node);
-void append_to_property(struct node *node,
+void add_property(node_t *node, property_t *prop);
+void delete_property_by_name(node_t *node, char *name);
+void delete_property(property_t *prop);
+void add_child(node_t *parent, node_t *child);
+void delete_node_by_name(node_t *parent, char *name);
+void delete_node(node_t *node);
+void append_to_property(node_t *node,
 			char *name, const void *data, int len,
 			enum markertype type);
 
-const char *get_unitname(struct node *node);
-struct property *get_property(struct node *node, const char *propname);
-cell_t propval_cell(struct property *prop);
-cell_t propval_cell_n(struct property *prop, unsigned int n);
-struct property *get_property_by_label(struct node *tree, const char *label,
-				       struct node **node);
-marker_handle_t get_marker_label(struct node *tree, const char *label,
-				struct node **node, struct property **prop);
-struct node *get_subnode(struct node *node, const char *nodename);
-struct node *get_node_by_path(struct node *tree, const char *path);
-struct node *get_node_by_label(struct node *tree, const char *label);
-struct node *get_node_by_phandle(struct node *tree, cell_t phandle, dtc_options_handle_t options);
-struct node *get_node_by_ref(struct node *tree, const char *ref);
-cell_t get_node_phandle(struct node *root, struct node *node, dtc_options_handle_t options);
+const char *get_unitname(node_t *node);
+property_t *get_property(node_t *node, const char *propname);
+cell_t propval_cell(property_t *prop);
+cell_t propval_cell_n(property_t *prop, unsigned int n);
+property_t *get_property_by_label(node_t *tree, const char *label,
+				       node_t **node);
+marker_t *get_marker_label(node_t *tree, const char *label,
+				node_t **node, property_t **prop);
+node_t *get_subnode(node_t *node, const char *nodename);
+node_t *get_node_by_path(node_t *tree, const char *path);
+node_t *get_node_by_label(node_t *tree, const char *label);
+node_t *get_node_by_phandle(node_t *tree, cell_t phandle, int generate_fixups);
+node_t *get_node_by_ref(node_t *tree, const char *ref);
+cell_t get_node_phandle(node_t *root, node_t *node, int phandle_format);
 
-uint32_t guess_boot_cpuid(struct node *tree);
+uint32_t guess_boot_cpuid(node_t *tree);
 
 /* Boot info (tree plus memreserve information */
 
+typedef struct reserve_info reserve_info_t;
 struct reserve_info {
 	uint64_t address, size;
 
-	struct reserve_info *next;
+	reserve_info_t *next;
 
-	struct label *labels;
+	label_t *labels;
 };
 
-struct reserve_info *build_reserve_entry(uint64_t start, uint64_t len);
-struct reserve_info *chain_reserve_entry(struct reserve_info *first,
-					 struct reserve_info *list);
-struct reserve_info *add_reserve_entry(struct reserve_info *list,
-				       struct reserve_info *new);
+reserve_info_t *build_reserve_entry(uint64_t start, uint64_t len);
+reserve_info_t *chain_reserve_entry(reserve_info_t *first,
+					 reserve_info_t *list);
+reserve_info_t *add_reserve_entry(reserve_info_t *list,
+				       reserve_info_t *new);
 
 
-struct dt_info {
+typedef struct dt_info {
 	unsigned int dtsflags;
-	struct reserve_info *reservelist;
+	reserve_info_t *reservelist;
 	uint32_t boot_cpuid_phys;
-	struct node *dt;		/* the device tree */
+	node_t *dt;					/* the device tree */
 	const char *outname;		/* filename being written to, "-" for stdout */
-};
+
+	struct {
+		int quiet;					/* Level of quietness */
+		unsigned int reservenum;	/* Number of memory reservation slots */
+		int minsize;				/* Minimum blob size */
+		int padsize;				/* Additional padding to blob */
+		int alignsize;				/* Additional padding to blob accroding to the alignsize */
+		int phandle_format;			/* Use linux,phandle or phandle properties */
+		int generate_symbols;		/* generate symbols for nodes with labels */
+		int generate_fixups;		/* generate fixups */
+		int auto_label_aliases;		/* auto generate labels -> aliases */
+		int annotate;				/* annotate .dts with input source location */
+	} options;
+} dt_info_t;
 
 /* DTS version flags definitions */
 #define DTSF_V1		0x0001	/* /dts-v1/ */
 #define DTSF_PLUGIN	0x0002	/* /plugin/ */
 
-struct dt_info *build_dt_info(unsigned int dtsflags,
-			      struct reserve_info *reservelist,
-			      struct node *tree, uint32_t boot_cpuid_phys);
-void sort_tree(struct dt_info *dti);
-void generate_label_tree(struct dt_info *dti, char *name, dtc_options_handle_t options, bool allocph);
-void generate_fixups_tree(struct dt_info *dti, char *name);
-void generate_local_fixups_tree(struct dt_info *dti, char *name);
+void build_dt_info(dt_info_t *parser_output,
+				  unsigned int dtsflags,
+			      reserve_info_t *reservelist,
+			      node_t *tree, uint32_t boot_cpuid_phys);
+void sort_tree(dt_info_t *dti);
+void generate_label_tree(dt_info_t *dti, char *name, bool allocph);
+void generate_fixups_tree(dt_info_t *dti, char *name);
+void generate_local_fixups_tree(dt_info_t *dti, char *name);
 
 /* Checks */
 
 void parse_checks_option(bool warn, bool error, const char *arg);
-void process_checks(bool force, struct dt_info *dti, dtc_options_handle_t options);
+void process_checks(bool force, dt_info_t *dti);
 
 /* Flattened trees */
 
-void dt_to_blob(FILE *f, struct dt_info *dti, int version, dtc_options_handle_t options);
-void dt_to_asm(FILE *f, struct dt_info *dti, int version, dtc_options_handle_t options);
+void dt_to_blob(FILE *f, dt_info_t *dti, int version);
+void dt_to_asm(FILE *f, dt_info_t *dti, int version);
 
-struct dt_info *dt_from_blob(const char *fname);
+void dt_from_blob(const char *fname, dt_info_t *dti);
 
 /* Tree source */
 
-void dt_to_source(FILE *f, struct dt_info *dti, dtc_options_handle_t options);
-struct dt_info *dt_from_source(const char *f);
+void dt_to_source(FILE *f, dt_info_t *dti);
+void dt_from_source(const char *f, dt_info_t *dti);
 
 /* YAML source */
 
-void dt_to_yaml(FILE *f, struct dt_info *dti, dtc_options_handle_t options);
+void dt_to_yaml(FILE *f, dt_info_t *dti);
 
 /* FS trees */
 
-struct dt_info *dt_from_fs(const char *dirname);
+void dt_from_fs(const char *dirname, dt_info_t *dti);
 
 #endif /* DTC_H */

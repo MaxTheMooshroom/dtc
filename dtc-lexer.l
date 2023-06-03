@@ -23,7 +23,8 @@ LINECOMMENT	"//".*\n
 #include "srcpos.h"
 #include "dtc-parser.tab.h"
 
-extern bool treesource_error;
+extern int yylex(bool *treesource_error);
+#define YY_DECL int yylex(bool *treesource_error)
 
 /* CAUTION: this will stop working if we ever use yyless() or yyunput() */
 #define	YY_USER_ACTION \
@@ -46,7 +47,7 @@ static int dts_version = 1;
 
 static void push_input_file(const char *filename);
 static bool pop_input_file(void);
-static void PRINTF(1, 2) lexical_error(const char *fmt, ...);
+static void PRINTF(2, 3) lexical_error(bool *treesource_error, const char *fmt, ...);
 
 %}
 
@@ -59,7 +60,7 @@ static void PRINTF(1, 2) lexical_error(const char *fmt, ...);
 
 <*>^"#"(line)?[ \t]+[0-9]+[ \t]+{STRING}([ \t]+[0-9]+)* {
 			char *line, *fnstart, *fnend;
-			struct data fn;
+			data_t fn;
 			/* skip text before line # */
 			line = yytext;
 			while (!isdigit((unsigned char)*line))
@@ -79,7 +80,7 @@ static void PRINTF(1, 2) lexical_error(const char *fmt, ...);
 
 			/* Don't allow nuls in filenames */
 			if (memchr(fn.val, '\0', fn.len - 1))
-				lexical_error("nul in line number directive");
+				lexical_error(treesource_error, "nul in line number directive");
 
 			/* -1 since #line is the number of the next line */
 			srcpos_set_line(xstrdup(fn.val), atoi(line) - 1);
@@ -159,12 +160,12 @@ static void PRINTF(1, 2) lexical_error(const char *fmt, ...);
 			yylval.integer = strtoull(yytext, &e, 0);
 
 			if (*e && e[strspn(e, "UL")]) {
-				lexical_error("Bad integer literal '%s'",
+				lexical_error(treesource_error, "Bad integer literal '%s'",
 					      yytext);
 			}
 
 			if (errno == ERANGE)
-				lexical_error("Integer literal '%s' out of range",
+				lexical_error(treesource_error, "Integer literal '%s' out of range",
 					      yytext);
 			else
 				/* ERANGE is the only strtoull error triggerable
@@ -174,18 +175,18 @@ static void PRINTF(1, 2) lexical_error(const char *fmt, ...);
 		}
 
 <*>{CHAR_LITERAL}	{
-			struct data d;
+			data_t d;
 			DPRINT("Character literal: %s\n", yytext);
 
 			d = data_copy_escape_string(yytext+1, yyleng-2);
 			if (d.len == 1) {
-				lexical_error("Empty character literal");
+				lexical_error(treesource_error, "Empty character literal");
 				yylval.integer = 0;
 			} else {
 				yylval.integer = (unsigned char)d.val[0];
 
 				if (d.len > 2)
-					lexical_error("Character literal has %d"
+					lexical_error(treesource_error, "Character literal has %d"
 						      " characters instead of 1",
 						      d.len - 1);
 			}
@@ -285,7 +286,7 @@ static bool pop_input_file(void)
 	return true;
 }
 
-static void lexical_error(const char *fmt, ...)
+static void lexical_error(bool *treesource_error, const char *fmt, ...)
 {
 	va_list ap;
 
@@ -293,5 +294,5 @@ static void lexical_error(const char *fmt, ...)
 	srcpos_verror(&yylloc, "Lexical error", fmt, ap);
 	va_end(ap);
 
-	treesource_error = true;
+	*treesource_error = true;
 }

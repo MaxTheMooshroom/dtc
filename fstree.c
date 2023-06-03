@@ -8,12 +8,12 @@
 #include <dirent.h>
 #include <sys/stat.h>
 
-static struct node *read_fstree(const char *dirname)
+static node_t *read_fstree(const char *dirname)
 {
 	DIR *d;
 	struct dirent *de;
 	struct stat st;
-	struct node *tree;
+	node_t *tree;
 
 	d = opendir(dirname);
 	if (!d)
@@ -34,7 +34,7 @@ static struct node *read_fstree(const char *dirname)
 			die("stat(%s): %s\n", tmpname, strerror(errno));
 
 		if (S_ISREG(st.st_mode)) {
-			struct property *prop;
+			property_t *prop;
 			FILE *pfile;
 
 			pfile = fopen(tmpname, "rb");
@@ -51,7 +51,7 @@ static struct node *read_fstree(const char *dirname)
 				fclose(pfile);
 			}
 		} else if (S_ISDIR(st.st_mode)) {
-			struct node *newchild;
+			node_t *newchild;
 
 			newchild = read_fstree(tmpname);
 			newchild = name_node(newchild, xstrdup(de->d_name));
@@ -65,12 +65,15 @@ static struct node *read_fstree(const char *dirname)
 	return tree;
 }
 
-struct dt_info *dt_from_fs(const char *dirname)
+void dt_from_fs(const char *dirname, dt_info_t *dti)
 {
-	struct node *tree;
+	if (dti == NULL)
+		die("Attempted to construct tree using a null pointer");
+
+	node_t *tree;
 
 	tree = read_fstree(dirname);
 	tree = name_node(tree, "");
 
-	return build_dt_info(DTSF_V1, NULL, tree, guess_boot_cpuid(tree));
+	build_dt_info(dti, DTSF_V1, NULL, tree, guess_boot_cpuid(tree));
 }
