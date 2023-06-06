@@ -4,10 +4,10 @@ This specific repo exists as a place for proposed changes to dtc. Those changes 
 - [X] moving configuration options into a struct for per-operation configuration
   - [X] write struct
   - [X] Find all locations where the old global variables were used by dtc and replace them with config struct pointers `dtc_options_handle_t`. 
-- [X] typedef'ing various structs 
+- [X] [typedef'ing various structs](https://github.com/MaxTheMooshroom/dtc/pull/1)
   - [X] typedef the structs
   - [X] modify function signatures to use the typedefs instead of `struct x` or `struct x *y`
-- [ ] altering some functions so that the upcoming API implementation isn't built on the assumption of being a one-and-done program
+- [ ] [altering some functions so that the upcoming API implementation isn't built on the assumption of being a one-and-done program](https://github.com/MaxTheMooshroom/dtc/issues/3)
   - WIP ; started already because some parts of the previous step bled into this one
 - [ ] add to and modify existing documentation for the functions updated as a part of the previous step
 - [ ] add a C API for dtc
