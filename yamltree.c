@@ -110,7 +110,7 @@ static void yaml_propval_string(yaml_emitter_t *emitter, char *str, int len)
 	yaml_emitter_emit_or_die(emitter, &event);
 }
 
-static void yaml_propval(yaml_emitter_t *emitter, struct property *prop)
+static void yaml_propval(yaml_emitter_t *emitter, property_t *prop)
 {
 	yaml_event_t event;
 	unsigned int len = prop->val.len;
@@ -175,10 +175,10 @@ static void yaml_propval(yaml_emitter_t *emitter, struct property *prop)
 }
 
 
-static void yaml_tree(struct node *tree, yaml_emitter_t *emitter)
+static void yaml_tree(node_t *tree, yaml_emitter_t *emitter)
 {
-	struct property *prop;
-	struct node *child;
+	property_t *prop;
+	node_t *child;
 	yaml_event_t event;
 
 	if (tree->deleted)
@@ -204,7 +204,7 @@ static void yaml_tree(struct node *tree, yaml_emitter_t *emitter)
 	yaml_emitter_emit_or_die(emitter, &event);
 }
 
-void dt_to_yaml(FILE *f, struct dt_info *dti)
+void dt_to_yaml(dt_info_t *dti, FILE *f)
 {
 	yaml_emitter_t emitter;
 	yaml_event_t event;
