@@ -814,7 +814,7 @@ void dt_from_blob(const char *fname, dt_info_t *dti)
 	uint32_t val;
 	int flags = 0;
 
-	f = srcfile_relative_open(fname, NULL);
+	f = srcfile_relative_open(dti, fname, NULL);
 
 	rc = fread(&magic_buf, sizeof(magic_buf), 1, f);
 	if (ferror(f))
