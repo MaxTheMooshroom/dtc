@@ -297,9 +297,9 @@ int main(int argc, char *argv[])
 	if (streq(inform, "dts"))
 		dt_from_source(&dti, arg);
 	else if (streq(inform, "fs"))
-		dt_from_fs(arg, &dti);
+		dt_from_fs(&dti, arg);
 	else if(streq(inform, "dtb"))
-		dt_from_blob(arg, &dti);
+		dt_from_blob(&dti, arg);
 	else
 		die("Unknown input format \"%s\"\n", inform);
 
@@ -320,7 +320,7 @@ int main(int argc, char *argv[])
 		dti.options.generate_fixups = 1;
 	}
 
-	process_checks(force, &dti);
+	process_checks(&dti, force);
 
 	if (dti.options.auto_label_aliases)
 		generate_label_tree(&dti, "aliases", false);
@@ -346,7 +346,7 @@ int main(int argc, char *argv[])
 	}
 
 	if (streq(outform, "dts")) {
-		dt_to_source(outf, &dti);
+		dt_to_source(&dti, outf);
 #ifndef NO_YAML
 	} else if (streq(outform, "yaml")) {
 		if (!streq(inform, "dts"))
@@ -354,9 +354,9 @@ int main(int argc, char *argv[])
 		dt_to_yaml(outf, &dti);
 #endif
 	} else if (streq(outform, "dtb")) {
-		dt_to_blob(outf, &dti, outversion);
+		dt_to_blob(&dti, outf, outversion);
 	} else if (streq(outform, "asm")) {
-		dt_to_asm(outf, &dti, outversion);
+		dt_to_asm(&dti, outf, outversion);
 	} else if (streq(outform, "null")) {
 		/* do nothing */
 	} else {

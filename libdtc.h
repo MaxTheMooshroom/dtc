@@ -29,6 +29,9 @@ dt_info_t *dt_copy(dt_info_t *dti);
 
 /* DeviceTree modifications */
 
+
+/* DeviceTree removal/deletion */
+
 /**
  *  Deallocate all memory used for a device tree.
  * 

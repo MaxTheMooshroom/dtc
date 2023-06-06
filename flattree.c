@@ -343,7 +343,7 @@ static void make_fdt_header(struct fdt_header *fdt,
 		fdt->size_dt_struct = cpu_to_fdt32(dtsize);
 }
 
-void dt_to_blob(FILE *f, dt_info_t *dti, int version)
+void dt_to_blob(dt_info_t *dti, FILE *f, int version)
 {
 	struct version_info *vi = NULL;
 	unsigned int i;
@@ -444,7 +444,7 @@ static void dump_stringtable_asm(FILE *f, data_t strbuf)
 	}
 }
 
-void dt_to_asm(FILE *f, dt_info_t *dti, int version)
+void dt_to_asm(dt_info_t *dti, FILE *f, int version)
 {
 	struct version_info *vi = NULL;
 	unsigned int i;
@@ -793,7 +793,7 @@ static node_t *unflatten_tree(struct inbuf *dtbuf,
 }
 
 
-void dt_from_blob(const char *fname, dt_info_t *dti)
+void dt_from_blob(dt_info_t *dti, const char *fname)
 {
 	if (dti == NULL)
 		die("Attempted to construct tree using a null pointer");

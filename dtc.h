@@ -370,26 +370,26 @@ void generate_local_fixups_tree(dt_info_t *dti, char *name);
 /* Checks */
 
 void parse_checks_option(bool warn, bool error, const char *arg);
-void process_checks(bool force, dt_info_t *dti);
+void process_checks(dt_info_t *dti, bool force);
 
 /* Flattened trees */
 
-void dt_to_blob(FILE *f, dt_info_t *dti, int version);
-void dt_to_asm(FILE *f, dt_info_t *dti, int version);
+void dt_to_blob(dt_info_t *dti, FILE *f, int version);
+void dt_to_asm(dt_info_t *dti, FILE *f, int version);
 
-void dt_from_blob(const char *fname, dt_info_t *dti);
+void dt_from_blob(dt_info_t *dti, const char *fname);
 
 /* Tree source */
 
-void dt_to_source(FILE *f, dt_info_t *dti);
+void dt_to_source(dt_info_t *dti, FILE *f);
 void dt_from_source(dt_info_t *dti, const char *f);
 
 /* YAML source */
 
-void dt_to_yaml(FILE *f, dt_info_t *dti);
+void dt_to_yaml(dt_info_t *dti, FILE *f);
 
 /* FS trees */
 
-void dt_from_fs(const char *dirname, dt_info_t *dti);
+void dt_from_fs(dt_info_t *dti, const char *dirname);
 
 #endif /* DTC_H */

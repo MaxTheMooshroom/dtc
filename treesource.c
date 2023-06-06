@@ -312,7 +312,7 @@ static void write_tree_source_node(dt_info_t *dti, FILE *f, node_t *tree, int le
 	fprintf(f, "\n");
 }
 
-void dt_to_source(FILE *f, dt_info_t *dti)
+void dt_to_source(dt_info_t *dti, FILE *f)
 {
 	reserve_info_t *re;
 

@@ -2055,7 +2055,7 @@ void parse_checks_option(bool warn, bool error, const char *arg)
 	die("Unrecognized check name \"%s\"\n", name);
 }
 
-void process_checks(bool force, dt_info_t *dti)
+void process_checks(dt_info_t *dti, bool force)
 {
 	unsigned int i;
 	int error = 0;
