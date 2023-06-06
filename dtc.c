@@ -160,6 +160,15 @@ int main(int argc, char *argv[])
 	int outversion = DEFAULT_FDT_VERSION;
 	long long cmdline_boot_cpuid = -1;
 
+	dti.src_info.depfile 			= NULL;
+	dti.src_info.srcfile_depth 		= 0;
+	dti.src_info.current_srcfile 	= NULL;
+	dti.src_info.initial_path 		= NULL;
+	dti.src_info.initial_pathlen 	= 0;
+	dti.src_info.initial_cpp 		= true;
+	dti.src_info.search_path_head 	= NULL;
+	dti.src_info.search_path_tail 	= NULL;
+
 	dti.options.quiet      = 0;
 	dti.options.reservenum = 0;
 	dti.options.minsize    = 0;
