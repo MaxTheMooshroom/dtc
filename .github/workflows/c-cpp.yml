@@ -1,4 +1,4 @@
-name: C/C++ CI
+name: DeviceTree Compiler Test Artifact Comparison
 
 on:
   push:
@@ -6,14 +6,87 @@ on:
   pull_request:
     branches: [ "1.8.0" ]
 
+permissions: write-all
+
 jobs:
-  build:
-
+  build-dtc:
     runs-on: ubuntu-latest
-
+    steps:
+      - uses: actions/checkout@v3
+      - name: make dtc
+        run: make dtc
+  generate_artifacts:
+    runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v3
+      with:
+        token: ${{ github.token }}
     - name: make tests
       run: make tests
-    - name: make dtc
-      run: make dtc
+    - name: Generate Artifacts Summary
+      id: artifacts-summary
+      run: |
+        echo "ARTIFACTS SUMMARY<<EOF" >> $GITHUB_OUTPUT
+        find tests/ -type f -name "*.dtb" -exec sha512sum {} \; | sed 's/  /,/' | cat <(echo 'sha512,file_name') - >> $GITHUB_OUTPUT
+        echo "EOF" >> $GITHUB_OUTPUT
+    - name: Add test artifacts as git notes
+      run: |
+        git fetch origin refs/notes/*:refs/notes/*
+        git config user.name "github-actions"
+        git config user.email "bot@github.com"
+        git notes add -m "${{ steps.artifacts-summary.outputs.ARTIFACTS_SUMMARY }}"
+        git notes show
+        git push origin refs/notes/*
+
+  compare_artifacts:
+    runs-on: ubuntu-latest
+    if: ${{ github.event_name == 'pull_request' }}
+    steps:
+    - uses: actions/checkout@v3
+      with:
+        fetch-depth: 0
+        token: ${{ github.token }}
+    - name: Pull artifact summaries (I.E. git notes) from upstream
+      run: |
+        git fetch origin refs/notes/*:refs/notes/*
+    - name: Retrieve PR's head branch's artifacts summary
+      id: artifact-summary-head
+      run: |
+        echo "ARTIFACTS_SUMMARY<<EOF" >> $GITHUB_OUTPUT
+        git notes show >> $GITHUB_OUTPUT
+        echo "EOF" >> $GITHUB_OUTPUT
+    - name: Retrieve PR's target branch's artifacts summary
+      id: artifact-summary-base
+      run: |
+        git checkout ${{ github.base_ref }}
+        echo "ARTIFACTS_SUMMARY<<EOF" >> $GITHUB_OUTPUT
+        git notes show >> $GITHUB_OUTPUT
+        echo "EOF" >> $GITHUB_OUTPUT
+    - name: Setup Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: "3.10"
+    - name: Install artefactscomparison package
+      run: pip install -U artefactscomparison
+    - name: Generate artifact comparison report
+      id: artifact-comparison-report
+      run: |
+        echo "${{ steps.artifact-summary-head.outputs.ARTIFACTS_SUMMARY }}" > head.csv
+        echo "${{ steps.artifact-summary-base.outputs.ARTIFACTS_SUMMARY }}" > base.csv
+        echo "ARTIFACTS_REPORT<<EOF" >> $GITHUB_OUTPUT
+        artifacts_comparison -b base.csv -h head.csv >> $GITHUB_OUTPUT
+        echo "EOF" >> $GITHUB_OUTPUT
+    - name: Comment PR with artifact comparison report
+      uses: thollander/actions-comment-pull-request@v2
+      with:
+        message: ${{ steps.artifact-comparison-report.outputs.ARTIFACTS_REPORT }}
+        comment_tag: artifact_comparison_report
+        mode: recreate
+    needs: generate_artifacts
+    
+    
+    
+    
+    
+    
+    
