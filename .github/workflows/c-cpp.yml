@@ -74,13 +74,13 @@ jobs:
         echo "${{ steps.artifact-summary-head.outputs.ARTIFACTS_SUMMARY }}" > head.csv
         echo "${{ steps.artifact-summary-base.outputs.ARTIFACTS_SUMMARY }}" > base.csv
         echo "ARTIFACTS_REPORT<<EOF" >> $GITHUB_OUTPUT
-        artifacts_comparison -b base.csv -h head.csv >> $GITHUB_OUTPUT
+        artefacts_comparison -b base.csv -h head.csv >> $GITHUB_OUTPUT
         echo "EOF" >> $GITHUB_OUTPUT
     - name: Comment PR with artifact comparison report
       uses: thollander/actions-comment-pull-request@v2
       with:
         message: ${{ steps.artifact-comparison-report.outputs.ARTIFACTS_REPORT }}
-        comment_tag: artifact_comparison_report
+        comment_tag: artefact_comparison_report
         mode: recreate
     needs: generate_artifacts
     
