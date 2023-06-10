@@ -44,7 +44,7 @@ jobs:
       uses: actions/cache@v3
       with:
         name: 1.7.0
-        # TODO: for complete safety, use the commit ID of `1.7.0`'s head
+        # TODO: for complete safety, use the output of `git rev-parse 1.7.10`
         key: 1.7.0
         path: |
           
