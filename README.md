@@ -1,5 +1,7 @@
 # libdtc
 
+[![DeviceTree Compiler Test Artifact Comparison](https://github.com/MaxTheMooshroom/dtc/actions/workflows/c-cpp.yml/badge.svg?branch=1.8.0)](https://github.com/MaxTheMooshroom/dtc/actions/workflows/c-cpp.yml)
+
 This specific repo exists as a place for proposed changes to dtc. Those changes are:
 - [X] moving configuration options into a struct for per-operation configuration
   - [X] write struct
