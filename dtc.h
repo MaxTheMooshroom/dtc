@@ -313,12 +313,17 @@ reserve_info_t *add_reserve_entry(reserve_info_t *list,
 				       reserve_info_t *new);
 
 
-typedef struct dt_info {
+// srcpos.h -> typedef struct dt_info dt_info_t;
+
+struct dt_info {
 	unsigned int dtsflags;
 	reserve_info_t *reservelist;
 	uint32_t boot_cpuid_phys;
-	node_t *dt;					/* the device tree */
-	const char *outname;		/* filename being written to, "-" for stdout */
+	node_t *dt;						/* the device tree */
+	const char *outname;			/* filename being written to, "-" for stdout */
+
+	bool has_error;
+	const char *error_msg;
 
 	struct {
 		int quiet;					/* Level of quietness */
@@ -332,7 +337,22 @@ typedef struct dt_info {
 		int auto_label_aliases;		/* auto generate labels -> aliases */
 		int annotate;				/* annotate .dts with input source location */
 	} options;
-} dt_info_t;
+
+	struct {
+		FILE *depfile; 						/* = NULL 	*/
+		int srcfile_depth; 					/* = 0 		*/
+		srcfile_state_t *current_srcfile; 	/* = NULL 	*/
+		char *initial_path; 				/* = NULL 	*/
+		int initial_pathlen; 				/* = 0 		*/
+		bool initial_cpp;					/* = true	*/
+
+		FILE *yyin;
+		YYLTYPE yylloc;
+
+		/* This is the list of directories to search for source/include files */
+		search_path_t *search_path_head, **search_path_tail;
+	} src_info;
+};
 
 /* DTS version flags definitions */
 #define DTSF_V1		0x0001	/* /dts-v1/ */
@@ -350,26 +370,26 @@ void generate_local_fixups_tree(dt_info_t *dti, char *name);
 /* Checks */
 
 void parse_checks_option(bool warn, bool error, const char *arg);
-void process_checks(bool force, dt_info_t *dti);
+void process_checks(dt_info_t *dti, bool force);
 
 /* Flattened trees */
 
-void dt_to_blob(FILE *f, dt_info_t *dti, int version);
-void dt_to_asm(FILE *f, dt_info_t *dti, int version);
+void dt_to_blob(dt_info_t *dti, FILE *f, int version);
+void dt_to_asm(dt_info_t *dti, FILE *f, int version);
 
-void dt_from_blob(const char *fname, dt_info_t *dti);
+void dt_from_blob(dt_info_t *dti, const char *fname);
 
 /* Tree source */
 
-void dt_to_source(FILE *f, dt_info_t *dti);
-void dt_from_source(const char *f, dt_info_t *dti);
+void dt_to_source(dt_info_t *dti, FILE *f);
+void dt_from_source(dt_info_t *dti, const char *f);
 
 /* YAML source */
 
-void dt_to_yaml(FILE *f, dt_info_t *dti);
+void dt_to_yaml(dt_info_t *dti, FILE *f);
 
 /* FS trees */
 
-void dt_from_fs(const char *dirname, dt_info_t *dti);
+void dt_from_fs(dt_info_t *dti, const char *dirname);
 
 #endif /* DTC_H */

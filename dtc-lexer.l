@@ -23,13 +23,13 @@ LINECOMMENT	"//".*\n
 #include "srcpos.h"
 #include "dtc-parser.tab.h"
 
-extern int yylex(bool *treesource_error);
-#define YY_DECL int yylex(bool *treesource_error)
+extern int yylex(dt_info_t *dti, bool *treesource_error);
+#define YY_DECL int yylex(dt_info_t *dti, bool *treesource_error)
 
 /* CAUTION: this will stop working if we ever use yyless() or yyunput() */
 #define	YY_USER_ACTION \
 	{ \
-		srcpos_update(&yylloc, yytext, yyleng); \
+		srcpos_update(dti, &yylloc, yytext, yyleng); \
 	}
 
 /*#define LEXDEBUG	1*/
@@ -45,8 +45,8 @@ static int dts_version = 1;
 #define BEGIN_DEFAULT()		DPRINT("<V1>\n"); \
 				BEGIN(V1); \
 
-static void push_input_file(const char *filename);
-static bool pop_input_file(void);
+static void push_input_file(dt_info_t *dti, const char *filename);
+static bool pop_input_file(dt_info_t *dti);
 static void PRINTF(2, 3) lexical_error(bool *treesource_error, const char *fmt, ...);
 
 %}
@@ -55,7 +55,7 @@ static void PRINTF(2, 3) lexical_error(bool *treesource_error, const char *fmt, 
 <*>"/include/"{WS}*{STRING} {
 			char *name = strchr(yytext, '\"') + 1;
 			yytext[yyleng-1] = '\0';
-			push_input_file(name);
+			push_input_file(dti, name);
 		}
 
 <*>^"#"(line)?[ \t]+[0-9]+[ \t]+{STRING}([ \t]+[0-9]+)* {
@@ -83,12 +83,12 @@ static void PRINTF(2, 3) lexical_error(bool *treesource_error, const char *fmt, 
 				lexical_error(treesource_error, "nul in line number directive");
 
 			/* -1 since #line is the number of the next line */
-			srcpos_set_line(xstrdup(fn.val), atoi(line) - 1);
+			srcpos_set_line(dti, xstrdup(fn.val), atoi(line) - 1);
 			data_free(fn);
 		}
 
 <*><<EOF>>		{
-			if (!pop_input_file()) {
+			if (!pop_input_file(dti)) {
 				yyterminate();
 			}
 		}
@@ -263,25 +263,25 @@ static void PRINTF(2, 3) lexical_error(bool *treesource_error, const char *fmt, 
 
 %%
 
-static void push_input_file(const char *filename)
+static void push_input_file(dt_info_t *dti, const char *filename)
 {
 	assert(filename);
 
-	srcfile_push(filename);
+	srcfile_push(dti, filename);
 
-	yyin = current_srcfile->f;
+	dti->src_info.yyin = dti->src_info.current_srcfile->f;
 
-	yypush_buffer_state(yy_create_buffer(yyin, YY_BUF_SIZE));
+	yypush_buffer_state(yy_create_buffer(dti->src_info.yyin, YY_BUF_SIZE));
 }
 
 
-static bool pop_input_file(void)
+static bool pop_input_file(dt_info_t *dti)
 {
-	if (srcfile_pop() == 0)
+	if (srcfile_pop(dti) == 0)
 		return false;
 
 	yypop_buffer_state();
-	yyin = current_srcfile->f;
+	dti->src_info.yyin = dti->src_info.current_srcfile->f;
 
 	return true;
 }

@@ -65,7 +65,7 @@ static node_t *read_fstree(const char *dirname)
 	return tree;
 }
 
-void dt_from_fs(const char *dirname, dt_info_t *dti)
+void dt_from_fs(dt_info_t *dti, const char *dirname)
 {
 	if (dti == NULL)
 		die("Attempted to construct tree using a null pointer");

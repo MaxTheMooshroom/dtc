@@ -5,7 +5,7 @@
 
 #include <sys/stat.h>
 
-#include "dtc.h"
+#include "libdtc.h"
 #include "srcpos.h"
 
 
@@ -77,6 +77,49 @@ static const char *guess_input_format(const char *fname, const char *fallback)
 		return "dtb";
 
 	return guess_type_by_name(fname, fallback);
+}
+
+
+dt_info_t *dt_new(int quiet, unsigned int reservenum,
+                  int minsize, int padsize,
+                  int alignsize, int phandle_format,
+                  int generate_symbols, int generate_fixups,
+                  int auto_label_aliases, int annotate)
+{
+	dt_info_t *dti = xmalloc(sizeof(*dti));
+	dti->has_error = false;
+
+	if (alignsize != NULL && !is_power_of_2(alignsize))
+	{
+		dti->has_error = true;
+		dti->error_msg = "invalid alignsize was provided ; must be a power of 2";
+		return dti;
+	}
+	
+	if (phandle_format < PHANDLE_LEGACY || phandle_format > PHANDLE_BOTH)
+	{
+		dti->has_error = true;
+		dti->error_msg = "invalid phandle format was provided";
+		return dti;
+	}
+	
+	if ()
+	{
+		dti->has_error = true;
+		dti->error_msg = "";
+		return dti;
+	}
+	
+	if ()
+	{
+		dti->has_error = true;
+		dti->error_msg = "";
+		return dti;
+	}
+
+	// TODO:
+
+	return dti;
 }
 
 
