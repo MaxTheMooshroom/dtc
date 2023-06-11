@@ -50,7 +50,10 @@ jobs:
     
     - if: ${{ steps.cache--1-7-0.outputs.cache-hit != 'true' }}
       name: Generate DTBs
-      run: make tests
+      run: |
+        make tests
+        mkdir -p 1.7.0
+        mv tests/*.dtb 1.7.0/
     
     - name: fetch__branch
       uses: actions/download-artifact@v3
@@ -60,8 +63,6 @@ jobs:
 
     - name: run comparison
       run: |
-        mkdir -p 1.7.0
-        mv tests/*.dtb 1.7.0/
         files_failed=""
         for file in branch/*.dtb; do
           if ! cmp --silent "$file" "1.7.0/${file##*/}"; then
