@@ -17,7 +17,7 @@ jobs:
           name: dtc
           path: dtc
 
-  generate_artifacts__branch:
+  generate_branch_artifacts:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v3
@@ -75,7 +75,7 @@ jobs:
           exit 1
         fi
 
-    needs: [generate_artifacts__branch]
+    needs: [generate_branch_artifacts]
   
     
     
