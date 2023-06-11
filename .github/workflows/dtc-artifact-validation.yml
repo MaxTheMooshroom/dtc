@@ -1,0 +1,79 @@
+name: DeviceTree Compiler Test Artifact Comparison
+
+on:
+  pull_request:
+    branches: [ "1.8.0", "dev" ]
+
+jobs:
+  build_dtc:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: make dtc
+        run: make dtc
+      - name: archive dtc
+        uses: actions/upload-artifact@v3
+        with:
+          name: dtc
+          path: dtc
+
+  generate_artifacts__branch:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+    - name: make tests
+      run: make tests
+    - name: Upload branch artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: DeviceTreeBlobs
+        path:
+          tests/*.dtb
+
+  compare_artifacts:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: cache 1.7.0 test artifacts
+      id: cache--1-7-0
+      uses: actions/cache@v3
+      env:
+        rev-parse-1_7_0: $(git rev-parse origin/1.7.0)
+      with:
+        name: 1.7.0 artifacts
+        key: ${{ runner.os }}-${{ env.rev-parse-1_7_0 }}-dtbs
+        path:
+          tests/*.dtb
+    
+    - if: ${{ steps.cache--1-7-0.outputs.cache-hit != 'true' }}
+      name: Generate DTBs
+      run: make tests
+    
+    - name: fetch__branch
+      uses: actions/download-artifact@v3
+      with:
+        name: DeviceTreeBlobs
+        path: branch/
+
+    - name: run comparison
+      run: |
+        mkdir 1.7.0
+        mv tests/*.dtb 1.7.0/
+        files_failed=""
+        for file in branch/*.dtb; do
+          if ! cmp --silent "$file" "1.7.0/${file##*/}"; then
+            files_failed="$files_failed${file##*/}\n"
+          fi
+        done
+        if [ -n "$files_failed" ]; then
+          echo "The following files failed the comparison:"
+          echo -e "$files_failed"
+          exit 1
+        fi
+
+    needs: [generate_artifacts__branch]
+  
+    
+    
+    
