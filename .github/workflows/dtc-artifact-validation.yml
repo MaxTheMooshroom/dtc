@@ -46,8 +46,7 @@ jobs:
       uses: actions/cache@v3
       with:
         key: ${{ runner.os }}-${{ steps.commit-hash.outputs.commit_hash }}-dtbs
-        path:
-          tests/*.dtb
+        path: 1.7.0/
     
     - if: ${{ steps.cache--1-7-0.outputs.cache-hit != 'true' }}
       name: Generate DTBs
