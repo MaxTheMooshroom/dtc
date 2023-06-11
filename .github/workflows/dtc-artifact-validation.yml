@@ -37,14 +37,15 @@ jobs:
       with:
         ref: "1.7.0"
 
+    - name: Get commit hash for 1.7.0
+      id: commit-hash
+      run: echo "::set-output name=commit_hash::$(git rev-parse origin/1.7.0)"
+
     - name: cache 1.7.0 test artifacts
       id: cache--1-7-0
       uses: actions/cache@v3
-      env:
-        rev-parse-1_7_0: $(git rev-parse origin/1.7.0)
       with:
-        name: 1.7.0 artifacts
-        key: ${{ runner.os }}-${{ env.rev-parse-1_7_0 }}-dtbs
+        key: ${{ runner.os }}-${{ steps.commit-hash.outputs.commit_hash }}-dtbs
         path:
           tests/*.dtb
     
