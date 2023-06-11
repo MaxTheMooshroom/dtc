@@ -60,7 +60,7 @@ jobs:
 
     - name: run comparison
       run: |
-        mkdir 1.7.0
+        mkdir -p 1.7.0
         mv tests/*.dtb 1.7.0/
         files_failed=""
         for file in branch/*.dtb; do
