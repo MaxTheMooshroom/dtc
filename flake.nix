@@ -2,10 +2,7 @@
   description = "DeviceTree Compiler v1.8.0 - Fork by MtM";
 
   inputs = {
-    # what nixos version is this?
     nixpkgs.url = "github:nixos/nixpkgs/nixos-23.05";
-
-    # dtc.url = "github:MaxTheMooshroom/dtc/dev";
   };
 
   outputs = { self, nixpkgs }: {
@@ -32,7 +29,7 @@
       installPhase = ''
         mkdir -p $out/bin
         cp dtc $out/bin/dtc
-      ''; # try doing something maybe?
+      '';
 
       checkPhase = ''
         make tests
