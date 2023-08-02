@@ -5,8 +5,7 @@
     # what nixos version is this?
     # nixpkgs.url = "github:nixos/nixpkgs/nixos-xx.xx";
 
-    dtc.url = "github:MaxTheMooshroom/dtc";
-    dtc.ref = "refs/heads/dev";
+    dtc.url = "github:MaxTheMooshroom/dtc/dev";
   };
 
   outputs = { self, nixpkgs, dtc }: {
