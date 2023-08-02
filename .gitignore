@@ -20,6 +20,7 @@ lex.yy.c
 /.pc
 
 ./dtc-old
+./result
 
 # cscope files
 cscope.*
