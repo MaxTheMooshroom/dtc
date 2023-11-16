@@ -6,20 +6,18 @@
 #include "dtc.h"
 #include "srcpos.h"
 
-extern FILE *yyin;
 extern int yyparse(dt_info_t *dti, bool* treesource_error);
-extern YYLTYPE yylloc;
 
-void dt_from_source(const char *fname, dt_info_t *dti)
+void dt_from_source(dt_info_t *dti, const char *fname)
 {
 	if (dti == NULL)
 		die("Attempted to construct tree using a null pointer");
 
 	bool treesource_error = false;
 
-	srcfile_push(fname);
-	yyin = current_srcfile->f;
-	yylloc.file = current_srcfile;
+	srcfile_push(dti, fname);
+	dti->src_info.yyin = dti->src_info.current_srcfile->f;
+	dti->src_info.yylloc.file = dti->src_info.current_srcfile;
 
 	if (yyparse(dti, &treesource_error) != 0)
 		die("Unable to parse input tree\n");
@@ -169,7 +167,7 @@ static enum markertype guess_value_type(property_t *prop)
 	return TYPE_UINT8;
 }
 
-static void write_propval(FILE *f, property_t *prop, int annotate)
+static void write_propval(dt_info_t *dti, FILE *f, property_t *prop, int annotate)
 {
 	size_t len = prop->val.len;
 	marker_t *m = prop->val.markers;
@@ -180,7 +178,7 @@ static void write_propval(FILE *f, property_t *prop, int annotate)
 	if (len == 0) {
 		fprintf(f, ";");
 		if (annotate) {
-			srcstr = srcpos_string_first(prop->srcpos, annotate);
+			srcstr = srcpos_string_first(dti, prop->srcpos, annotate);
 			if (srcstr) {
 				fprintf(f, " /* %s */", srcstr);
 				free(srcstr);
@@ -258,7 +256,7 @@ static void write_propval(FILE *f, property_t *prop, int annotate)
 	}
 	fprintf(f, ";");
 	if (annotate) {
-		srcstr = srcpos_string_first(prop->srcpos, annotate);
+		srcstr = srcpos_string_first(dti, prop->srcpos, annotate);
 		if (srcstr) {
 			fprintf(f, " /* %s */", srcstr);
 			free(srcstr);
@@ -267,7 +265,7 @@ static void write_propval(FILE *f, property_t *prop, int annotate)
 	fprintf(f, "\n");
 }
 
-static void write_tree_source_node(FILE *f, node_t *tree, int level, int annotate)
+static void write_tree_source_node(dt_info_t *dti, FILE *f, node_t *tree, int level, int annotate)
 {
 	property_t *prop;
 	node_t *child;
@@ -283,7 +281,7 @@ static void write_tree_source_node(FILE *f, node_t *tree, int level, int annotat
 		fprintf(f, "/ {");
 
 	if (annotate) {
-		srcstr = srcpos_string_first(tree->srcpos, annotate);
+		srcstr = srcpos_string_first(dti, tree->srcpos, annotate);
 		if (srcstr) {
 			fprintf(f, " /* %s */", srcstr);
 			free(srcstr);
@@ -296,16 +294,16 @@ static void write_tree_source_node(FILE *f, node_t *tree, int level, int annotat
 		for_each_label(prop->labels, l)
 			fprintf(f, "%s: ", l->label);
 		fprintf(f, "%s", prop->name);
-		write_propval(f, prop, annotate);
+		write_propval(dti, f, prop, annotate);
 	}
 	for_each_child(tree, child) {
 		fprintf(f, "\n");
-		write_tree_source_node(f, child, level+1, annotate);
+		write_tree_source_node(dti, f, child, level+1, annotate);
 	}
 	write_prefix(f, level);
 	fprintf(f, "};");
 	if (annotate) {
-		srcstr = srcpos_string_last(tree->srcpos, annotate);
+		srcstr = srcpos_string_last(dti, tree->srcpos, annotate);
 		if (srcstr) {
 			fprintf(f, " /* %s */", srcstr);
 			free(srcstr);
@@ -314,7 +312,7 @@ static void write_tree_source_node(FILE *f, node_t *tree, int level, int annotat
 	fprintf(f, "\n");
 }
 
-void dt_to_source(FILE *f, dt_info_t *dti)
+void dt_to_source(dt_info_t *dti, FILE *f)
 {
 	reserve_info_t *re;
 
@@ -330,5 +328,5 @@ void dt_to_source(FILE *f, dt_info_t *dti)
 			(unsigned long long)re->size);
 	}
 
-	write_tree_source_node(f, dti->dt, 0, dti->options.annotate);
+	write_tree_source_node(dti, f, dti->dt, 0, dti->options.annotate);
 }

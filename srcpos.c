@@ -11,22 +11,13 @@
 #include "srcpos.h"
 
 /* A node in our list of directories to search for source/include files */
-typedef struct search_path search_path_t;
 struct search_path {
-	search_path_t *next;	/* next node in list, NULL for end */
+	search_path_t *next;		/* next node in list, NULL for end */
 	const char *dirname;		/* name of directory to search */
 };
 
-struct dummy {
-	int num;
-};
-
-/* This is the list of directories that we search for source files */
-static search_path_t *search_path_head, **search_path_tail;
-
 /* Detect infinite include recursion. */
 #define MAX_SRCFILE_DEPTH     (200)
-static int srcfile_depth; /* = 0 */
 
 static char *get_dirname(const char *path)
 {
@@ -43,29 +34,24 @@ static char *get_dirname(const char *path)
 	return NULL;
 }
 
-FILE *depfile; /* = NULL */
-srcfile_state_t *current_srcfile; /* = NULL */
-static char *initial_path; /* = NULL */
-static int initial_pathlen; /* = 0 */
-static bool initial_cpp = true;
 
-static void set_initial_path(char *fname)
+static void set_initial_path(dt_info_t *dti, char *fname)
 {
 	int i, len = strlen(fname);
 
-	xasprintf(&initial_path, "%s", fname);
-	initial_pathlen = 0;
+	xasprintf(&dti->src_info.initial_path, "%s", fname);
+	dti->src_info.initial_pathlen = 0;
 	for (i = 0; i != len; i++)
-		if (initial_path[i] == '/')
-			initial_pathlen++;
+		if (dti->src_info.initial_path[i] == '/')
+			dti->src_info.initial_pathlen++;
 }
 
-static char *shorten_to_initial_path(char *fname)
+static char *shorten_to_initial_path(dt_info_t *dti, char *fname)
 {
 	char *p1, *p2, *prevslash1 = NULL;
 	int slashes = 0;
 
-	for (p1 = fname, p2 = initial_path; *p1 && *p2; p1++, p2++) {
+	for (p1 = fname, p2 = dti->src_info.initial_path; *p1 && *p2; p1++, p2++) {
 		if (*p1 != *p2)
 			break;
 		if (*p1 == '/') {
@@ -75,7 +61,7 @@ static char *shorten_to_initial_path(char *fname)
 	}
 	p1 = prevslash1 + 1;
 	if (prevslash1) {
-		int diff = initial_pathlen - slashes, i, j;
+		int diff = dti->src_info.initial_pathlen - slashes, i, j;
 		int restlen = strlen(fname) - (p1 - fname);
 		char *res;
 
@@ -125,11 +111,13 @@ static char *try_open(const char *dirname, const char *fname, FILE **fp)
  *
  * If it is a relative filename, we search the full search path for it.
  *
- * @param fname	Filename to open
- * @param fp	Returns pointer to opened FILE, or NULL on failure
+ * @param search_path_head 	Root search_path_t node to search through
+ * @param fname				Filename to open
+ * @param fp				Returns pointer to opened FILE, or NULL on failure
  * @return pointer to allocated filename, which caller must free
  */
-static char *fopen_any_on_path(const char *fname, FILE **fp)
+static char *fopen_any_on_path(dt_info_t *dti, const char *fname,
+							   FILE **fp)
 {
 	const char *cur_dir = NULL;
 	search_path_t *node;
@@ -137,18 +125,19 @@ static char *fopen_any_on_path(const char *fname, FILE **fp)
 
 	/* Try current directory first */
 	assert(fp);
-	if (current_srcfile)
-		cur_dir = current_srcfile->dir;
+	if (dti->src_info.current_srcfile)
+		cur_dir = dti->src_info.current_srcfile->dir;
 	fullname = try_open(cur_dir, fname, fp);
 
 	/* Failing that, try each search path in turn */
-	for (node = search_path_head; !*fp && node; node = node->next)
+	for (node = dti->src_info.search_path_head; !*fp && node; node = node->next)
 		fullname = try_open(node->dirname, fname, fp);
 
 	return fullname;
 }
 
-FILE *srcfile_relative_open(const char *fname, char **fullnamep)
+FILE *srcfile_relative_open(dt_info_t *dti, const char *fname,
+							char **fullnamep)
 {
 	FILE *f;
 	char *fullname;
@@ -157,14 +146,14 @@ FILE *srcfile_relative_open(const char *fname, char **fullnamep)
 		f = stdin;
 		fullname = xstrdup("<stdin>");
 	} else {
-		fullname = fopen_any_on_path(fname, &f);
+		fullname = fopen_any_on_path(dti, fname, &f);
 		if (!f)
 			die("Couldn't open \"%s\": %s\n", fname,
 			    strerror(errno));
 	}
 
-	if (depfile)
-		fprintf(depfile, " %s", fullname);
+	if (dti->src_info.depfile)
+		fprintf(dti->src_info.depfile, " %s", fullname);
 
 	if (fullnamep)
 		*fullnamep = fullname;
@@ -174,35 +163,35 @@ FILE *srcfile_relative_open(const char *fname, char **fullnamep)
 	return f;
 }
 
-void srcfile_push(const char *fname)
+void srcfile_push(dt_info_t *dti, const char *fname)
 {
 	srcfile_state_t *srcfile;
 
-	if (srcfile_depth++ >= MAX_SRCFILE_DEPTH)
+	if (dti->src_info.srcfile_depth++ >= MAX_SRCFILE_DEPTH)
 		die("Includes nested too deeply");
 
 	srcfile = xmalloc(sizeof(*srcfile));
 
-	srcfile->f = srcfile_relative_open(fname, &srcfile->name);
+	srcfile->f = srcfile_relative_open(dti, fname, &srcfile->name);
 	srcfile->dir = get_dirname(srcfile->name);
-	srcfile->prev = current_srcfile;
+	srcfile->prev = dti->src_info.current_srcfile;
 
 	srcfile->lineno = 1;
 	srcfile->colno = 1;
 
-	current_srcfile = srcfile;
+	dti->src_info.current_srcfile = srcfile;
 
-	if (srcfile_depth == 1)
-		set_initial_path(srcfile->name);
+	if (dti->src_info.srcfile_depth == 1)
+		set_initial_path(dti, srcfile->name);
 }
 
-bool srcfile_pop(void)
+bool srcfile_pop(dt_info_t *dti)
 {
-	srcfile_state_t *srcfile = current_srcfile;
+	srcfile_state_t *srcfile = dti->src_info.current_srcfile;
 
 	assert(srcfile);
 
-	current_srcfile = srcfile->prev;
+	dti->src_info.current_srcfile = srcfile->prev;
 
 	if (fclose(srcfile->f))
 		die("Error closing \"%s\": %s\n", srcfile->name,
@@ -214,10 +203,10 @@ bool srcfile_pop(void)
 	 * fix this we could either allocate all the files from a
 	 * table, or use a pool allocator. */
 
-	return current_srcfile ? true : false;
+	return dti->src_info.current_srcfile ? true : false;
 }
 
-void srcfile_add_search_path(const char *dirname)
+void srcfile_add_search_path(dt_info_t *dti, const char *dirname)
 {
 	search_path_t *node;
 
@@ -227,32 +216,32 @@ void srcfile_add_search_path(const char *dirname)
 	node->dirname = xstrdup(dirname);
 
 	/* Add to the end of our list */
-	if (search_path_tail)
-		*search_path_tail = node;
+	if (dti->src_info.search_path_tail)
+		*dti->src_info.search_path_tail = node;
 	else
-		search_path_head = node;
-	search_path_tail = &node->next;
+		dti->src_info.search_path_head = node;
+	dti->src_info.search_path_tail = &node->next;
 }
 
-void srcpos_update(srcpos_t *pos, const char *text, int len)
+void srcpos_update(dt_info_t *dti, srcpos_t *pos, const char *text, int len)
 {
 	int i;
 
-	pos->file = current_srcfile;
+	pos->file = dti->src_info.current_srcfile;
 
-	pos->first_line = current_srcfile->lineno;
-	pos->first_column = current_srcfile->colno;
+	pos->first_line = dti->src_info.current_srcfile->lineno;
+	pos->first_column = dti->src_info.current_srcfile->colno;
 
 	for (i = 0; i < len; i++)
 		if (text[i] == '\n') {
-			current_srcfile->lineno++;
-			current_srcfile->colno = 1;
+			dti->src_info.current_srcfile->lineno++;
+			dti->src_info.current_srcfile->colno = 1;
 		} else {
-			current_srcfile->colno++;
+			dti->src_info.current_srcfile->colno++;
 		}
 
-	pos->last_line = current_srcfile->lineno;
-	pos->last_column = current_srcfile->colno;
+	pos->last_line = dti->src_info.current_srcfile->lineno;
+	pos->last_column = dti->src_info.current_srcfile->colno;
 }
 
 srcpos_t *
@@ -314,7 +303,7 @@ srcpos_string(srcpos_t *pos)
 }
 
 static char *
-srcpos_string_comment(srcpos_t *pos, bool first_line, int level)
+srcpos_string_comment(dt_info_t *dti, srcpos_t *pos, bool first_line, int level)
 {
 	char *pos_str, *fname, *first, *rest;
 	bool fresh_fname = false;
@@ -335,7 +324,7 @@ srcpos_string_comment(srcpos_t *pos, bool first_line, int level)
 	else if (level > 1)
 		fname = pos->file->name;
 	else {
-		fname = shorten_to_initial_path(pos->file->name);
+		fname = shorten_to_initial_path(dti, pos->file->name);
 		if (fname)
 			fresh_fname = true;
 		else
@@ -354,7 +343,7 @@ srcpos_string_comment(srcpos_t *pos, bool first_line, int level)
 		free(fname);
 
 	if (pos->next != NULL) {
-		rest = srcpos_string_comment(pos->next, first_line, level);
+		rest = srcpos_string_comment(dti, pos->next, first_line, level);
 		xasprintf(&pos_str, "%s, %s", first, rest);
 		free(first);
 		free(rest);
@@ -365,14 +354,14 @@ srcpos_string_comment(srcpos_t *pos, bool first_line, int level)
 	return pos_str;
 }
 
-char *srcpos_string_first(srcpos_t *pos, int level)
+char *srcpos_string_first(dt_info_t *dti, srcpos_t *pos, int level)
 {
-	return srcpos_string_comment(pos, true, level);
+	return srcpos_string_comment(dti, pos, true, level);
 }
 
-char *srcpos_string_last(srcpos_t *pos, int level)
+char *srcpos_string_last(dt_info_t *dti, srcpos_t *pos, int level)
 {
-	return srcpos_string_comment(pos, false, level);
+	return srcpos_string_comment(dti, pos, false, level);
 }
 
 void srcpos_verror(srcpos_t *pos, const char *prefix,
@@ -399,13 +388,13 @@ void srcpos_error(srcpos_t *pos, const char *prefix,
 	va_end(va);
 }
 
-void srcpos_set_line(char *f, int l)
+void srcpos_set_line(dt_info_t *dti, char *f, int l)
 {
-	current_srcfile->name = f;
-	current_srcfile->lineno = l;
+	dti->src_info.current_srcfile->name = f;
+	dti->src_info.current_srcfile->lineno = l;
 
-	if (initial_cpp) {
-		initial_cpp = false;
-		set_initial_path(f);
+	if (dti->src_info.initial_cpp) {
+		dti->src_info.initial_cpp = false;
+		set_initial_path(dti, f);
 	}
 }

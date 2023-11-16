@@ -11,7 +11,7 @@
 #include "dtc.h"
 #include "srcpos.h"
 
-extern int yylex(bool *treesource_error);
+extern int yylex(dt_info_t *dti, bool *treesource_error);
 extern void yyerror(dt_info_t *dti, bool *treesource_error, char const *s);
 #define ERROR(loc, ...) \
 	do { \
@@ -68,6 +68,7 @@ static bool is_ref_relative(const char *ref)
 
 %parse-param { dt_info_t *dti }
 %parse-param { bool *treesource_error }
+%lex-param { dt_info_t *dti }
 %lex-param { bool *treesource_error }
 
 %type <data> propdata
@@ -321,7 +322,7 @@ propdata:
 		}
 	| propdataprefix DT_INCBIN '(' DT_STRING ',' integer_prim ',' integer_prim ')'
 		{
-			FILE *f = srcfile_relative_open($4.val, NULL);
+			FILE *f = srcfile_relative_open(dti, $4.val, NULL);
 			data_t d;
 
 			if ($6 != 0)
@@ -337,7 +338,7 @@ propdata:
 		}
 	| propdataprefix DT_INCBIN '(' DT_STRING ')'
 		{
-			FILE *f = srcfile_relative_open($4.val, NULL);
+			FILE *f = srcfile_relative_open(dti, $4.val, NULL);
 			data_t d = empty_data;
 
 			d = data_copy_file(f, -1);
