@@ -29,7 +29,7 @@ char *yaml_error_name[] = {
 		    (emitter)->problem, __func__, __LINE__);		\
 })
 
-static void yaml_propval_int(yaml_emitter_t *emitter, struct marker *markers,
+static void yaml_propval_int(yaml_emitter_t *emitter, marker_t *markers,
 	char *data, unsigned int seq_offset, unsigned int len, int width)
 {
 	yaml_event_t event;
@@ -52,7 +52,7 @@ static void yaml_propval_int(yaml_emitter_t *emitter, struct marker *markers,
 
 	for (off = 0; off < len; off += width) {
 		char buf[32];
-		struct marker *m;
+		marker_t *m;
 		bool is_phandle = false;
 
 		switch(width) {
@@ -114,8 +114,8 @@ static void yaml_propval(yaml_emitter_t *emitter, struct property *prop)
 {
 	yaml_event_t event;
 	unsigned int len = prop->val.len;
-	struct marker *m = prop->val.markers;
-	struct marker *markers = prop->val.markers;
+	marker_t *m = prop->val.markers;
+	marker_t *markers = prop->val.markers;
 
 	/* Emit the property name */
 	yaml_scalar_event_initialize(&event, NULL,

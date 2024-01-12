@@ -1,52 +1,31 @@
-# Prerequisites
-*.d
-
-# Object files
 *.o
-*.ko
-*.obj
-*.elf
-
-# Linker output
-*.ilk
-*.map
-*.exp
-
-# Precompiled Headers
-*.gch
-*.pch
-
-# Libraries
-*.lib
+*.d
 *.a
-*.la
-*.lo
-
-# Shared objects (inc. Windows DLLs)
-*.dll
+*.patch
 *.so
-*.so.*
-*.dylib
+*~
+*.bak
+*.tab.[ch]
+lex.yy.c
+*.lex.c
+.*.swp
+/dtc
+/fdtdump
+/convert-dtsv0
+/version_gen.h
+/fdtget
+/fdtput
+/fdtoverlay
+/patches
+/.pc
 
-# Executables
-*.exe
-*.out
-*.app
-*.i*86
-*.x86_64
-*.hex
+./dtc-old
+./result
 
-# Debug files
-*.dSYM/
-*.su
-*.idb
-*.pdb
+# cscope files
+cscope.*
+ncscope.*
 
-# Kernel Module Compile Results
-*.mod*
-*.cmd
-.tmp_versions/
-modules.order
-Module.symvers
-Mkfile.old
-dkms.conf
+.eggs/
+build/
+dist/

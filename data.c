@@ -5,9 +5,10 @@
 
 #include "dtc.h"
 
-void data_free(struct data d)
+void data_free(data_t d)
 {
-	struct marker *m, *nm;
+	marker_t *m;
+	marker_t *nm;
 
 	m = d.markers;
 	while (m) {
@@ -21,9 +22,9 @@ void data_free(struct data d)
 		free(d.val);
 }
 
-struct data data_grow_for(struct data d, unsigned int xlen)
+data_t data_grow_for(data_t d, unsigned int xlen)
 {
-	struct data nd;
+	data_t nd;
 	unsigned int newsize;
 
 	if (xlen == 0)
@@ -41,9 +42,9 @@ struct data data_grow_for(struct data d, unsigned int xlen)
 	return nd;
 }
 
-struct data data_copy_mem(const char *mem, int len)
+data_t data_copy_mem(const char *mem, int len)
 {
-	struct data d;
+	data_t d;
 
 	d = data_grow_for(empty_data, len);
 
@@ -53,10 +54,10 @@ struct data data_copy_mem(const char *mem, int len)
 	return d;
 }
 
-struct data data_copy_escape_string(const char *s, int len)
+data_t data_copy_escape_string(const char *s, int len)
 {
 	int i = 0;
-	struct data d;
+	data_t d;
 	char *q;
 
 	d = data_add_marker(empty_data, TYPE_STRING, NULL);
@@ -76,9 +77,9 @@ struct data data_copy_escape_string(const char *s, int len)
 	return d;
 }
 
-struct data data_copy_file(FILE *f, size_t maxlen)
+data_t data_copy_file(FILE *f, size_t maxlen)
 {
-	struct data d = empty_data;
+	data_t d = empty_data;
 
 	d = data_add_marker(d, TYPE_NONE, NULL);
 	while (!feof(f) && (d.len < maxlen)) {
@@ -104,7 +105,7 @@ struct data data_copy_file(FILE *f, size_t maxlen)
 	return d;
 }
 
-struct data data_append_data(struct data d, const void *p, int len)
+data_t data_append_data(data_t d, const void *p, int len)
 {
 	d = data_grow_for(d, len);
 	memcpy(d.val + d.len, p, len);
@@ -112,7 +113,7 @@ struct data data_append_data(struct data d, const void *p, int len)
 	return d;
 }
 
-struct data data_insert_at_marker(struct data d, struct marker *m,
+data_t data_insert_at_marker(data_t d, marker_t *m,
 				  const void *p, int len)
 {
 	d = data_grow_for(d, len);
@@ -127,9 +128,9 @@ struct data data_insert_at_marker(struct data d, struct marker *m,
 	return d;
 }
 
-static struct data data_append_markers(struct data d, struct marker *m)
+static data_t data_append_markers(data_t d, marker_t *m)
 {
-	struct marker **mp = &d.markers;
+	marker_t **mp = &d.markers;
 
 	/* Find the end of the markerlist */
 	while (*mp)
@@ -138,10 +139,10 @@ static struct data data_append_markers(struct data d, struct marker *m)
 	return d;
 }
 
-struct data data_merge(struct data d1, struct data d2)
+data_t data_merge(data_t d1, data_t d2)
 {
-	struct data d;
-	struct marker *m2 = d2.markers;
+	data_t d;
+	marker_t *m2 = d2.markers;
 
 	d = data_append_markers(data_append_data(d1, d2.val, d2.len), m2);
 
@@ -155,7 +156,7 @@ struct data data_merge(struct data d1, struct data d2)
 	return d;
 }
 
-struct data data_append_integer(struct data d, uint64_t value, int bits)
+data_t data_append_integer(data_t d, uint64_t value, int bits)
 {
 	uint8_t value_8;
 	fdt16_t value_16;
@@ -184,7 +185,7 @@ struct data data_append_integer(struct data d, uint64_t value, int bits)
 	}
 }
 
-struct data data_append_re(struct data d, uint64_t address, uint64_t size)
+data_t data_append_re(data_t d, uint64_t address, uint64_t size)
 {
 	struct fdt_reserve_entry re;
 
@@ -194,22 +195,22 @@ struct data data_append_re(struct data d, uint64_t address, uint64_t size)
 	return data_append_data(d, &re, sizeof(re));
 }
 
-struct data data_append_cell(struct data d, cell_t word)
+data_t data_append_cell(data_t d, cell_t word)
 {
 	return data_append_integer(d, word, sizeof(word) * 8);
 }
 
-struct data data_append_addr(struct data d, uint64_t addr)
+data_t data_append_addr(data_t d, uint64_t addr)
 {
 	return data_append_integer(d, addr, sizeof(addr) * 8);
 }
 
-struct data data_append_byte(struct data d, uint8_t byte)
+data_t data_append_byte(data_t d, uint8_t byte)
 {
 	return data_append_data(d, &byte, 1);
 }
 
-struct data data_append_zeroes(struct data d, int len)
+data_t data_append_zeroes(data_t d, int len)
 {
 	d = data_grow_for(d, len);
 
@@ -218,15 +219,15 @@ struct data data_append_zeroes(struct data d, int len)
 	return d;
 }
 
-struct data data_append_align(struct data d, int align)
+data_t data_append_align(data_t d, int align)
 {
 	int newlen = ALIGN(d.len, align);
 	return data_append_zeroes(d, newlen - d.len);
 }
 
-struct data data_add_marker(struct data d, enum markertype type, char *ref)
+data_t data_add_marker(data_t d, enum markertype type, char *ref)
 {
-	struct marker *m;
+	marker_t *m;
 
 	m = xmalloc(sizeof(*m));
 	m->offset = d.len;
@@ -237,7 +238,7 @@ struct data data_add_marker(struct data d, enum markertype type, char *ref)
 	return data_append_markers(d, m);
 }
 
-bool data_is_one_string(struct data d)
+bool data_is_one_string(data_t d)
 {
 	int i;
 	int len = d.len;

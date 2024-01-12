@@ -10,9 +10,9 @@
  * Tree building functions
  */
 
-void add_label(struct label **labels, char *label)
+void add_label(label_t **labels, char *label)
 {
-	struct label *new;
+	label_t *new;
 
 	/* Make sure the label isn't already there */
 	for_each_label_withdel(*labels, new)
@@ -28,18 +28,18 @@ void add_label(struct label **labels, char *label)
 	*labels = new;
 }
 
-void delete_labels(struct label **labels)
+void delete_labels(label_t **labels)
 {
-	struct label *label;
+	label_t *label;
 
 	for_each_label(*labels, label)
 		label->deleted = 1;
 }
 
-struct property *build_property(char *name, struct data val,
-				struct srcpos *srcpos)
+property_t *build_property(char *name, data_t val,
+				srcpos_t *srcpos)
 {
-	struct property *new = xmalloc(sizeof(*new));
+	property_t *new = xmalloc(sizeof(*new));
 
 	memset(new, 0, sizeof(*new));
 
@@ -50,9 +50,9 @@ struct property *build_property(char *name, struct data val,
 	return new;
 }
 
-struct property *build_property_delete(char *name)
+property_t *build_property_delete(char *name)
 {
-	struct property *new = xmalloc(sizeof(*new));
+	property_t *new = xmalloc(sizeof(*new));
 
 	memset(new, 0, sizeof(*new));
 
@@ -62,7 +62,7 @@ struct property *build_property_delete(char *name)
 	return new;
 }
 
-struct property *chain_property(struct property *first, struct property *list)
+property_t *chain_property(property_t *first, property_t *list)
 {
 	assert(first->next == NULL);
 
@@ -70,11 +70,11 @@ struct property *chain_property(struct property *first, struct property *list)
 	return first;
 }
 
-struct property *reverse_properties(struct property *first)
+property_t *reverse_properties(property_t *first)
 {
-	struct property *p = first;
-	struct property *head = NULL;
-	struct property *next;
+	property_t *p = first;
+	property_t *head = NULL;
+	property_t *next;
 
 	while (p) {
 		next = p->next;
@@ -85,11 +85,11 @@ struct property *reverse_properties(struct property *first)
 	return head;
 }
 
-struct node *build_node(struct property *proplist, struct node *children,
-			struct srcpos *srcpos)
+node_t *build_node(property_t *proplist, node_t *children,
+			srcpos_t *srcpos)
 {
-	struct node *new = xmalloc(sizeof(*new));
-	struct node *child;
+	node_t *new = xmalloc(sizeof(*new));
+	node_t *child;
 
 	memset(new, 0, sizeof(*new));
 
@@ -104,9 +104,9 @@ struct node *build_node(struct property *proplist, struct node *children,
 	return new;
 }
 
-struct node *build_node_delete(struct srcpos *srcpos)
+node_t *build_node_delete(srcpos_t *srcpos)
 {
-	struct node *new = xmalloc(sizeof(*new));
+	node_t *new = xmalloc(sizeof(*new));
 
 	memset(new, 0, sizeof(*new));
 
@@ -116,7 +116,7 @@ struct node *build_node_delete(struct srcpos *srcpos)
 	return new;
 }
 
-struct node *name_node(struct node *node, char *name)
+node_t *name_node(node_t *node, char *name)
 {
 	assert(node->name == NULL);
 
@@ -125,25 +125,25 @@ struct node *name_node(struct node *node, char *name)
 	return node;
 }
 
-struct node *omit_node_if_unused(struct node *node)
+node_t *omit_node_if_unused(node_t *node)
 {
 	node->omit_if_unused = 1;
 
 	return node;
 }
 
-struct node *reference_node(struct node *node)
+node_t *reference_node(node_t *node)
 {
 	node->is_referenced = 1;
 
 	return node;
 }
 
-struct node *merge_nodes(struct node *old_node, struct node *new_node)
+node_t *merge_nodes(node_t *old_node, node_t *new_node)
 {
-	struct property *new_prop, *old_prop;
-	struct node *new_child, *old_child;
-	struct label *l;
+	property_t *new_prop, *old_prop;
+	node_t *new_child, *old_child;
+	label_t *l;
 
 	old_node->deleted = 0;
 
@@ -225,12 +225,12 @@ struct node *merge_nodes(struct node *old_node, struct node *new_node)
 	return old_node;
 }
 
-struct node * add_orphan_node(struct node *dt, struct node *new_node, char *ref)
+node_t * add_orphan_node(node_t *dt, node_t *new_node, char *ref)
 {
 	static unsigned int next_orphan_fragment = 0;
-	struct node *node;
-	struct property *p;
-	struct data d = empty_data;
+	node_t *node;
+	property_t *p;
+	data_t d = empty_data;
 	char *name;
 
 	if (ref[0] == '/') {
@@ -255,7 +255,7 @@ struct node * add_orphan_node(struct node *dt, struct node *new_node, char *ref)
 	return dt;
 }
 
-struct node *chain_node(struct node *first, struct node *list)
+node_t *chain_node(node_t *first, node_t *list)
 {
 	assert(first->next_sibling == NULL);
 
@@ -263,9 +263,9 @@ struct node *chain_node(struct node *first, struct node *list)
 	return first;
 }
 
-void add_property(struct node *node, struct property *prop)
+void add_property(node_t *node, property_t *prop)
 {
-	struct property **p;
+	property_t **p;
 
 	prop->next = NULL;
 
@@ -276,9 +276,9 @@ void add_property(struct node *node, struct property *prop)
 	*p = prop;
 }
 
-void delete_property_by_name(struct node *node, char *name)
+void delete_property_by_name(node_t *node, char *name)
 {
-	struct property *prop = node->proplist;
+	property_t *prop = node->proplist;
 
 	while (prop) {
 		if (streq(prop->name, name)) {
@@ -289,15 +289,15 @@ void delete_property_by_name(struct node *node, char *name)
 	}
 }
 
-void delete_property(struct property *prop)
+void delete_property(property_t *prop)
 {
 	prop->deleted = 1;
 	delete_labels(&prop->labels);
 }
 
-void add_child(struct node *parent, struct node *child)
+void add_child(node_t *parent, node_t *child)
 {
-	struct node **p;
+	node_t **p;
 
 	child->next_sibling = NULL;
 	child->parent = parent;
@@ -309,9 +309,9 @@ void add_child(struct node *parent, struct node *child)
 	*p = child;
 }
 
-void delete_node_by_name(struct node *parent, char *name)
+void delete_node_by_name(node_t *parent, char *name)
 {
-	struct node *node = parent->children;
+	node_t *node = parent->children;
 
 	while (node) {
 		if (streq(node->name, name)) {
@@ -322,10 +322,10 @@ void delete_node_by_name(struct node *parent, char *name)
 	}
 }
 
-void delete_node(struct node *node)
+void delete_node(node_t *node)
 {
-	struct property *prop;
-	struct node *child;
+	property_t *prop;
+	node_t *child;
 
 	node->deleted = 1;
 	for_each_child(node, child)
@@ -335,12 +335,12 @@ void delete_node(struct node *node)
 	delete_labels(&node->labels);
 }
 
-void append_to_property(struct node *node,
+void append_to_property(node_t *node,
 			char *name, const void *data, int len,
 			enum markertype type)
 {
-	struct data d;
-	struct property *p;
+	data_t d;
+	property_t *p;
 
 	p = get_property(node, name);
 	if (p) {
@@ -355,9 +355,9 @@ void append_to_property(struct node *node,
 	}
 }
 
-struct reserve_info *build_reserve_entry(uint64_t address, uint64_t size)
+reserve_info_t *build_reserve_entry(uint64_t address, uint64_t size)
 {
-	struct reserve_info *new = xmalloc(sizeof(*new));
+	reserve_info_t *new = xmalloc(sizeof(*new));
 
 	memset(new, 0, sizeof(*new));
 
@@ -367,8 +367,8 @@ struct reserve_info *build_reserve_entry(uint64_t address, uint64_t size)
 	return new;
 }
 
-struct reserve_info *chain_reserve_entry(struct reserve_info *first,
-					struct reserve_info *list)
+reserve_info_t *chain_reserve_entry(reserve_info_t *first,
+					reserve_info_t *list)
 {
 	assert(first->next == NULL);
 
@@ -376,10 +376,10 @@ struct reserve_info *chain_reserve_entry(struct reserve_info *first,
 	return first;
 }
 
-struct reserve_info *add_reserve_entry(struct reserve_info *list,
-				      struct reserve_info *new)
+reserve_info_t *add_reserve_entry(reserve_info_t *list,
+				      reserve_info_t *new)
 {
-	struct reserve_info *last;
+	reserve_info_t *last;
 
 	new->next = NULL;
 
@@ -394,26 +394,22 @@ struct reserve_info *add_reserve_entry(struct reserve_info *list,
 	return list;
 }
 
-struct dt_info *build_dt_info(unsigned int dtsflags,
-			      struct reserve_info *reservelist,
-			      struct node *tree, uint32_t boot_cpuid_phys)
+void build_dt_info(dt_info_t *dti,
+				  unsigned int dtsflags,
+			      reserve_info_t *reservelist,
+			      node_t *tree, uint32_t boot_cpuid_phys)
 {
-	struct dt_info *dti;
-
-	dti = xmalloc(sizeof(*dti));
 	dti->dtsflags = dtsflags;
 	dti->reservelist = reservelist;
 	dti->dt = tree;
 	dti->boot_cpuid_phys = boot_cpuid_phys;
-
-	return dti;
 }
 
 /*
  * Tree accessor functions
  */
 
-const char *get_unitname(struct node *node)
+const char *get_unitname(node_t *node)
 {
 	if (node->name[node->basenamelen] == '\0')
 		return "";
@@ -421,9 +417,9 @@ const char *get_unitname(struct node *node)
 		return node->name + node->basenamelen + 1;
 }
 
-struct property *get_property(struct node *node, const char *propname)
+property_t *get_property(node_t *node, const char *propname)
 {
-	struct property *prop;
+	property_t *prop;
 
 	for_each_property(node, prop)
 		if (streq(prop->name, propname))
@@ -432,28 +428,28 @@ struct property *get_property(struct node *node, const char *propname)
 	return NULL;
 }
 
-cell_t propval_cell(struct property *prop)
+cell_t propval_cell(property_t *prop)
 {
 	assert(prop->val.len == sizeof(cell_t));
 	return fdt32_to_cpu(*((fdt32_t *)prop->val.val));
 }
 
-cell_t propval_cell_n(struct property *prop, unsigned int n)
+cell_t propval_cell_n(property_t *prop, unsigned int n)
 {
 	assert(prop->val.len / sizeof(cell_t) >= n);
 	return fdt32_to_cpu(*((fdt32_t *)prop->val.val + n));
 }
 
-struct property *get_property_by_label(struct node *tree, const char *label,
-				       struct node **node)
+property_t *get_property_by_label(node_t *tree, const char *label,
+				       node_t **node)
 {
-	struct property *prop;
-	struct node *c;
+	property_t *prop;
+	node_t *c;
 
 	*node = tree;
 
 	for_each_property(tree, prop) {
-		struct label *l;
+		label_t *l;
 
 		for_each_label(prop->labels, l)
 			if (streq(l->label, label))
@@ -470,12 +466,12 @@ struct property *get_property_by_label(struct node *tree, const char *label,
 	return NULL;
 }
 
-struct marker *get_marker_label(struct node *tree, const char *label,
-				struct node **node, struct property **prop)
+marker_t *get_marker_label(node_t *tree, const char *label,
+				node_t **node, property_t **prop)
 {
-	struct marker *m;
-	struct property *p;
-	struct node *c;
+	marker_t *m;
+	property_t *p;
+	node_t *c;
 
 	*node = tree;
 
@@ -498,9 +494,9 @@ struct marker *get_marker_label(struct node *tree, const char *label,
 	return NULL;
 }
 
-struct node *get_subnode(struct node *node, const char *nodename)
+node_t *get_subnode(node_t *node, const char *nodename)
 {
-	struct node *child;
+	node_t *child;
 
 	for_each_child(node, child)
 		if (streq(child->name, nodename))
@@ -509,10 +505,10 @@ struct node *get_subnode(struct node *node, const char *nodename)
 	return NULL;
 }
 
-struct node *get_node_by_path(struct node *tree, const char *path)
+node_t *get_node_by_path(node_t *tree, const char *path)
 {
 	const char *p;
-	struct node *child;
+	node_t *child;
 
 	if (!path || ! (*path)) {
 		if (tree->deleted)
@@ -535,10 +531,10 @@ struct node *get_node_by_path(struct node *tree, const char *path)
 	return NULL;
 }
 
-struct node *get_node_by_label(struct node *tree, const char *label)
+node_t *get_node_by_label(node_t *tree, const char *label)
 {
-	struct node *child, *node;
-	struct label *l;
+	node_t *child, *node;
+	label_t *l;
 
 	assert(label && (strlen(label) > 0));
 
@@ -555,9 +551,9 @@ struct node *get_node_by_label(struct node *tree, const char *label)
 	return NULL;
 }
 
-struct node *get_node_by_phandle(struct node *tree, cell_t phandle)
+node_t *get_node_by_phandle(node_t *tree, cell_t phandle, int generate_fixups)
 {
-	struct node *child, *node;
+	node_t *child, *node;
 
 	if (!phandle_is_valid(phandle)) {
 		assert(generate_fixups);
@@ -571,7 +567,7 @@ struct node *get_node_by_phandle(struct node *tree, cell_t phandle)
 	}
 
 	for_each_child(tree, child) {
-		node = get_node_by_phandle(child, phandle);
+		node = get_node_by_phandle(child, phandle, generate_fixups);
 		if (node)
 			return node;
 	}
@@ -579,9 +575,9 @@ struct node *get_node_by_phandle(struct node *tree, cell_t phandle)
 	return NULL;
 }
 
-struct node *get_node_by_ref(struct node *tree, const char *ref)
+node_t *get_node_by_ref(node_t *tree, const char *ref)
 {
-	struct node *target = tree;
+	node_t *target = tree;
 	const char *label = NULL, *path = NULL;
 
 	if (streq(ref, "/"))
@@ -616,15 +612,15 @@ struct node *get_node_by_ref(struct node *tree, const char *ref)
 	return target;
 }
 
-cell_t get_node_phandle(struct node *root, struct node *node)
+cell_t get_node_phandle(node_t *root, node_t *node, int phandle_format)
 {
 	static cell_t phandle = 1; /* FIXME: ick, static local */
-	struct data d = empty_data;
+	data_t d = empty_data;
 
 	if (phandle_is_valid(node->phandle))
 		return node->phandle;
 
-	while (get_node_by_phandle(root, phandle))
+	while (get_node_by_phandle(root, phandle, phandle_format))
 		phandle++;
 
 	node->phandle = phandle;
@@ -647,10 +643,10 @@ cell_t get_node_phandle(struct node *root, struct node *node)
 	return node->phandle;
 }
 
-uint32_t guess_boot_cpuid(struct node *tree)
+uint32_t guess_boot_cpuid(node_t *tree)
 {
-	struct node *cpus, *bootcpu;
-	struct property *reg;
+	node_t *cpus, *bootcpu;
+	property_t *reg;
 
 	cpus = get_node_by_path(tree, "/cpus");
 	if (!cpus)
@@ -672,10 +668,10 @@ uint32_t guess_boot_cpuid(struct node *tree)
 
 static int cmp_reserve_info(const void *ax, const void *bx)
 {
-	const struct reserve_info *a, *b;
+	const reserve_info_t *a, *b;
 
-	a = *((const struct reserve_info * const *)ax);
-	b = *((const struct reserve_info * const *)bx);
+	a = *((const reserve_info_t * const *)ax);
+	b = *((const reserve_info_t * const *)bx);
 
 	if (a->address < b->address)
 		return -1;
@@ -689,9 +685,9 @@ static int cmp_reserve_info(const void *ax, const void *bx)
 		return 0;
 }
 
-static void sort_reserve_entries(struct dt_info *dti)
+static void sort_reserve_entries(dt_info_t *dti)
 {
-	struct reserve_info *ri, **tbl;
+	reserve_info_t *ri, **tbl;
 	int n = 0, i = 0;
 
 	for (ri = dti->reservelist;
@@ -721,18 +717,18 @@ static void sort_reserve_entries(struct dt_info *dti)
 
 static int cmp_prop(const void *ax, const void *bx)
 {
-	const struct property *a, *b;
+	const property_t *a, *b;
 
-	a = *((const struct property * const *)ax);
-	b = *((const struct property * const *)bx);
+	a = *((const property_t * const *)ax);
+	b = *((const property_t * const *)bx);
 
 	return strcmp(a->name, b->name);
 }
 
-static void sort_properties(struct node *node)
+static void sort_properties(node_t *node)
 {
 	int n = 0, i = 0;
-	struct property *prop, **tbl;
+	property_t *prop, **tbl;
 
 	for_each_property_withdel(node, prop)
 		n++;
@@ -757,18 +753,18 @@ static void sort_properties(struct node *node)
 
 static int cmp_subnode(const void *ax, const void *bx)
 {
-	const struct node *a, *b;
+	const node_t *a, *b;
 
-	a = *((const struct node * const *)ax);
-	b = *((const struct node * const *)bx);
+	a = *((const node_t * const *)ax);
+	b = *((const node_t * const *)bx);
 
 	return strcmp(a->name, b->name);
 }
 
-static void sort_subnodes(struct node *node)
+static void sort_subnodes(node_t *node)
 {
 	int n = 0, i = 0;
-	struct node *subnode, **tbl;
+	node_t *subnode, **tbl;
 
 	for_each_child_withdel(node, subnode)
 		n++;
@@ -791,9 +787,9 @@ static void sort_subnodes(struct node *node)
 	free(tbl);
 }
 
-static void sort_node(struct node *node)
+static void sort_node(node_t *node)
 {
-	struct node *c;
+	node_t *c;
 
 	sort_properties(node);
 	sort_subnodes(node);
@@ -801,16 +797,16 @@ static void sort_node(struct node *node)
 		sort_node(c);
 }
 
-void sort_tree(struct dt_info *dti)
+void sort_tree(dt_info_t *dti)
 {
 	sort_reserve_entries(dti);
 	sort_node(dti->dt);
 }
 
 /* utility helper to avoid code duplication */
-static struct node *build_and_name_child_node(struct node *parent, char *name)
+static node_t *build_and_name_child_node(node_t *parent, char *name)
 {
-	struct node *node;
+	node_t *node;
 
 	node = build_node(NULL, NULL, NULL);
 	name_node(node, xstrdup(name));
@@ -819,9 +815,9 @@ static struct node *build_and_name_child_node(struct node *parent, char *name)
 	return node;
 }
 
-static struct node *build_root_node(struct node *dt, char *name)
+static node_t *build_root_node(node_t *dt, char *name)
 {
-	struct node *an;
+	node_t *an;
 
 	an = get_subnode(dt, name);
 	if (!an)
@@ -833,9 +829,9 @@ static struct node *build_root_node(struct node *dt, char *name)
 	return an;
 }
 
-static bool any_label_tree(struct dt_info *dti, struct node *node)
+static bool any_label_tree(dt_info_t *dti, node_t *node)
 {
-	struct node *c;
+	node_t *c;
 
 	if (node->labels)
 		return true;
@@ -847,14 +843,14 @@ static bool any_label_tree(struct dt_info *dti, struct node *node)
 	return false;
 }
 
-static void generate_label_tree_internal(struct dt_info *dti,
-					 struct node *an, struct node *node,
+static void generate_label_tree_internal(dt_info_t *dti,
+					 node_t *an, node_t *node,
 					 bool allocph)
 {
-	struct node *dt = dti->dt;
-	struct node *c;
-	struct property *p;
-	struct label *l;
+	node_t *dt = dti->dt;
+	node_t *c;
+	property_t *p;
+	label_t *l;
 
 	/* if there are labels */
 	if (node->labels) {
@@ -881,18 +877,18 @@ static void generate_label_tree_internal(struct dt_info *dti,
 
 		/* force allocation of a phandle for this node */
 		if (allocph)
-			(void)get_node_phandle(dt, node);
+			(void)get_node_phandle(dt, node, dti->options.phandle_format);
 	}
 
 	for_each_child(node, c)
 		generate_label_tree_internal(dti, an, c, allocph);
 }
 
-static bool any_fixup_tree(struct dt_info *dti, struct node *node)
+static bool any_fixup_tree(dt_info_t *dti, node_t *node)
 {
-	struct node *c;
-	struct property *prop;
-	struct marker *m;
+	node_t *c;
+	property_t *prop;
+	marker_t *m;
 
 	for_each_property(node, prop) {
 		m = prop->val.markers;
@@ -910,9 +906,9 @@ static bool any_fixup_tree(struct dt_info *dti, struct node *node)
 	return false;
 }
 
-static void add_fixup_entry(struct dt_info *dti, struct node *fn,
-			    struct node *node, struct property *prop,
-			    struct marker *m)
+static void add_fixup_entry(dt_info_t *dti, node_t *fn,
+			    node_t *node, property_t *prop,
+			    marker_t *m)
 {
 	char *entry;
 
@@ -936,15 +932,15 @@ static void add_fixup_entry(struct dt_info *dti, struct node *fn,
 	free(entry);
 }
 
-static void generate_fixups_tree_internal(struct dt_info *dti,
-					  struct node *fn,
-					  struct node *node)
+static void generate_fixups_tree_internal(dt_info_t *dti,
+					  node_t *fn,
+					  node_t *node)
 {
-	struct node *dt = dti->dt;
-	struct node *c;
-	struct property *prop;
-	struct marker *m;
-	struct node *refnode;
+	node_t *dt = dti->dt;
+	node_t *c;
+	property_t *prop;
+	marker_t *m;
+	node_t *refnode;
 
 	for_each_property(node, prop) {
 		m = prop->val.markers;
@@ -959,11 +955,11 @@ static void generate_fixups_tree_internal(struct dt_info *dti,
 		generate_fixups_tree_internal(dti, fn, c);
 }
 
-static bool any_local_fixup_tree(struct dt_info *dti, struct node *node)
+static bool any_local_fixup_tree(dt_info_t *dti, node_t *node)
 {
-	struct node *c;
-	struct property *prop;
-	struct marker *m;
+	node_t *c;
+	property_t *prop;
+	marker_t *m;
 
 	for_each_property(node, prop) {
 		m = prop->val.markers;
@@ -981,12 +977,12 @@ static bool any_local_fixup_tree(struct dt_info *dti, struct node *node)
 	return false;
 }
 
-static void add_local_fixup_entry(struct dt_info *dti,
-		struct node *lfn, struct node *node,
-		struct property *prop, struct marker *m,
-		struct node *refnode)
+static void add_local_fixup_entry(dt_info_t *dti,
+		node_t *lfn, node_t *node,
+		property_t *prop, marker_t *m,
+		node_t *refnode)
 {
-	struct node *wn, *nwn;	/* local fixup node, walk node, new */
+	node_t *wn, *nwn;	/* local fixup node, walk node, new */
 	fdt32_t value_32;
 	char **compp;
 	int i, depth;
@@ -1017,15 +1013,15 @@ static void add_local_fixup_entry(struct dt_info *dti,
 	append_to_property(wn, prop->name, &value_32, sizeof(value_32), TYPE_UINT32);
 }
 
-static void generate_local_fixups_tree_internal(struct dt_info *dti,
-						struct node *lfn,
-						struct node *node)
+static void generate_local_fixups_tree_internal(dt_info_t *dti,
+						node_t *lfn,
+						node_t *node)
 {
-	struct node *dt = dti->dt;
-	struct node *c;
-	struct property *prop;
-	struct marker *m;
-	struct node *refnode;
+	node_t *dt = dti->dt;
+	node_t *c;
+	property_t *prop;
+	marker_t *m;
+	node_t *refnode;
 
 	for_each_property(node, prop) {
 		m = prop->val.markers;
@@ -1040,7 +1036,7 @@ static void generate_local_fixups_tree_internal(struct dt_info *dti,
 		generate_local_fixups_tree_internal(dti, lfn, c);
 }
 
-void generate_label_tree(struct dt_info *dti, char *name, bool allocph)
+void generate_label_tree(dt_info_t *dti, char *name, bool allocph)
 {
 	if (!any_label_tree(dti, dti->dt))
 		return;
@@ -1048,7 +1044,7 @@ void generate_label_tree(struct dt_info *dti, char *name, bool allocph)
 				     dti->dt, allocph);
 }
 
-void generate_fixups_tree(struct dt_info *dti, char *name)
+void generate_fixups_tree(dt_info_t *dti, char *name)
 {
 	if (!any_fixup_tree(dti, dti->dt))
 		return;
@@ -1056,7 +1052,7 @@ void generate_fixups_tree(struct dt_info *dti, char *name)
 				      dti->dt);
 }
 
-void generate_local_fixups_tree(struct dt_info *dti, char *name)
+void generate_local_fixups_tree(dt_info_t *dti, char *name)
 {
 	if (!any_local_fixup_tree(dti, dti->dt))
 		return;

@@ -11,18 +11,15 @@
 #include "dtc.h"
 #include "srcpos.h"
 
-extern int yylex(void);
-extern void yyerror(char const *s);
+extern int yylex(bool *treesource_error);
+extern void yyerror(dt_info_t *dti, bool *treesource_error, char const *s);
 #define ERROR(loc, ...) \
 	do { \
 		srcpos_error((loc), "Error", __VA_ARGS__); \
-		treesource_error = true; \
+		*treesource_error = true; \
 	} while (0)
 
-#define YYERROR_CALL(msg) yyerror(msg)
-
-extern struct dt_info *parser_output;
-extern bool treesource_error;
+#define YYERROR_CALL(dti, tse, msg) yyerror(dti, tse, msg)
 
 static bool is_ref_relative(const char *ref)
 {
@@ -35,18 +32,18 @@ static bool is_ref_relative(const char *ref)
 	char *propnodename;
 	char *labelref;
 	uint8_t byte;
-	struct data data;
+	data_t data;
 
 	struct {
-		struct data	data;
+		data_t	data;
 		int		bits;
 	} array;
 
-	struct property *prop;
-	struct property *proplist;
-	struct node *node;
-	struct node *nodelist;
-	struct reserve_info *re;
+	property_t *prop;
+	property_t *proplist;
+	node_t *node;
+	node_t *nodelist;
+	reserve_info_t *re;
 	uint64_t integer;
 	unsigned int flags;
 }
@@ -68,6 +65,10 @@ static bool is_ref_relative(const char *ref)
 %token <labelref> DT_LABEL_REF
 %token <labelref> DT_PATH_REF
 %token DT_INCBIN
+
+%parse-param { dt_info_t *dti }
+%parse-param { bool *treesource_error }
+%lex-param { bool *treesource_error }
 
 %type <data> propdata
 %type <data> propdataprefix
@@ -106,8 +107,8 @@ static bool is_ref_relative(const char *ref)
 sourcefile:
 	  headers memreserves devicetree
 		{
-			parser_output = build_dt_info($1, $2, $3,
-			                              guess_boot_cpuid($3));
+			build_dt_info(dti, $1, $2, $3,
+			              guess_boot_cpuid($3));
 		}
 	;
 
@@ -184,7 +185,7 @@ devicetree:
 		}
 	| devicetree DT_LABEL dt_ref nodedef
 		{
-			struct node *target = get_node_by_ref($1, $3);
+			node_t *target = get_node_by_ref($1, $3);
 
 			if (($<flags>-1 & DTSF_PLUGIN) && is_ref_relative($3))
 				ERROR(&@2, "Label-relative reference %s not supported in plugin", $3);
@@ -208,7 +209,7 @@ devicetree:
 					ERROR(&@2, "Label-relative reference %s not supported in plugin", $2);
 				add_orphan_node($1, $3, $2);
 			} else {
-				struct node *target = get_node_by_ref($1, $2);
+				node_t *target = get_node_by_ref($1, $2);
 
 				if (target)
 					merge_nodes(target, $3);
@@ -219,7 +220,7 @@ devicetree:
 		}
 	| devicetree DT_LABEL_REF nodedef
 		{
-			struct node *target = get_node_by_ref($1, $2);
+			node_t *target = get_node_by_ref($1, $2);
 
 			if (target) {
 				merge_nodes(target, $3);
@@ -238,7 +239,7 @@ devicetree:
 		}
 	| devicetree DT_DEL_NODE dt_ref ';'
 		{
-			struct node *target = get_node_by_ref($1, $3);
+			node_t *target = get_node_by_ref($1, $3);
 
 			if (target)
 				delete_node(target);
@@ -250,7 +251,7 @@ devicetree:
 		}
 	| devicetree DT_OMIT_NO_REF dt_ref ';'
 		{
-			struct node *target = get_node_by_ref($1, $3);
+			node_t *target = get_node_by_ref($1, $3);
 
 			if (target)
 				omit_node_if_unused(target);
@@ -321,7 +322,7 @@ propdata:
 	| propdataprefix DT_INCBIN '(' DT_STRING ',' integer_prim ',' integer_prim ')'
 		{
 			FILE *f = srcfile_relative_open($4.val, NULL);
-			struct data d;
+			data_t d;
 
 			if ($6 != 0)
 				if (fseek(f, $6, SEEK_SET) != 0)
@@ -337,7 +338,7 @@ propdata:
 	| propdataprefix DT_INCBIN '(' DT_STRING ')'
 		{
 			FILE *f = srcfile_relative_open($4.val, NULL);
-			struct data d = empty_data;
+			data_t d = empty_data;
 
 			d = data_copy_file(f, -1);
 
@@ -588,7 +589,8 @@ subnode:
 
 %%
 
-void yyerror(char const *s)
+void yyerror(dt_info_t *dti, bool *treesource_error, char const *s)
 {
+	YY_USE(dti);
 	ERROR(&yylloc, "%s", s);
 }

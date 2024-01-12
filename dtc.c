@@ -6,31 +6,16 @@
 #include <sys/stat.h>
 
 #include "dtc.h"
-#include "srcpos.h"
 
-/*
- * Command line options
- */
-int quiet;		/* Level of quietness */
-unsigned int reservenum;/* Number of memory reservation slots */
-int minsize;		/* Minimum blob size */
-int padsize;		/* Additional padding to blob */
-int alignsize;		/* Additional padding to blob accroding to the alignsize */
-int phandle_format = PHANDLE_EPAPR;	/* Use linux,phandle or phandle properties */
-int generate_symbols;	/* enable symbols & fixup support */
-int generate_fixups;		/* suppress generation of fixups on symbol support */
-int auto_label_aliases;		/* auto generate labels -> aliases */
-int annotate;		/* Level of annotation: 1 for input source location
-			   >1 for full input source location. */
 
 static int is_power_of_2(int x)
 {
 	return (x > 0) && ((x & (x - 1)) == 0);
 }
 
-static void fill_fullpaths(struct node *tree, const char *prefix)
+static void fill_fullpaths(node_t *tree, const char *prefix)
 {
-	struct node *child;
+	node_t *child;
 	const char *unit;
 
 	tree->fullpath = join_path(prefix, tree->name);
@@ -76,9 +61,10 @@ static struct option const usage_long_opts[] = {
 static const char * const usage_opts_help[] = {
 	"\n\tQuiet: -q suppress warnings, -qq errors, -qqq all",
 	"\n\tInput formats are:\n"
-	 "\t\tdts - device tree source text\n"
-	 "\t\tdtb - device tree blob\n"
-	 "\t\tfs  - /proc/device-tree style directory",
+	 "\t\tdts  - device tree source text\n"
+	 "\t\tdtsi - device tree source include text\n"
+	 "\t\tdtb  - device tree blob\n"
+	 "\t\tfs   - /proc/device-tree style directory",
 	"\n\tOutput file",
 	"\n\tOutput formats are:\n"
 	 "\t\tdts - device tree source text\n"
@@ -161,7 +147,8 @@ static const char *guess_input_format(const char *fname, const char *fallback)
 
 int main(int argc, char *argv[])
 {
-	struct dt_info *dti;
+	dt_info_t *dti = xmalloc(sizeof(*dti));
+
 	const char *inform = NULL;
 	const char *outform = NULL;
 	const char *outname = "-";
@@ -173,11 +160,11 @@ int main(int argc, char *argv[])
 	int outversion = DEFAULT_FDT_VERSION;
 	long long cmdline_boot_cpuid = -1;
 
-	quiet      = 0;
-	reservenum = 0;
-	minsize    = 0;
-	padsize    = 0;
-	alignsize  = 0;
+	dti->options.quiet      = 0;
+	dti->options.reservenum = 0;
+	dti->options.minsize    = 0;
+	dti->options.padsize    = 0;
+	dti->options.alignsize  = 0;
 
 	while ((opt = util_getopt_long()) != EOF) {
 		switch (opt) {
@@ -197,25 +184,25 @@ int main(int argc, char *argv[])
 			depname = optarg;
 			break;
 		case 'R':
-			reservenum = strtoul(optarg, NULL, 0);
+			dti->options.reservenum = strtoul(optarg, NULL, 0);
 			break;
 		case 'S':
-			minsize = strtol(optarg, NULL, 0);
+			dti->options.minsize = strtol(optarg, NULL, 0);
 			break;
 		case 'p':
-			padsize = strtol(optarg, NULL, 0);
+			dti->options.padsize = strtol(optarg, NULL, 0);
 			break;
 		case 'a':
-			alignsize = strtol(optarg, NULL, 0);
-			if (!is_power_of_2(alignsize))
+			dti->options.alignsize = strtol(optarg, NULL, 0);
+			if (!is_power_of_2(dti->options.alignsize))
 				die("Invalid argument \"%d\" to -a option\n",
-				    alignsize);
+				    dti->options.alignsize);
 			break;
 		case 'f':
 			force = true;
 			break;
 		case 'q':
-			quiet++;
+			dti->options.quiet++;
 			break;
 		case 'b':
 			cmdline_boot_cpuid = strtoll(optarg, NULL, 0);
@@ -227,11 +214,11 @@ int main(int argc, char *argv[])
 			util_version();
 		case 'H':
 			if (streq(optarg, "legacy"))
-				phandle_format = PHANDLE_LEGACY;
+				dti->options.phandle_format = PHANDLE_LEGACY;
 			else if (streq(optarg, "epapr"))
-				phandle_format = PHANDLE_EPAPR;
+				dti->options.phandle_format = PHANDLE_EPAPR;
 			else if (streq(optarg, "both"))
-				phandle_format = PHANDLE_BOTH;
+				dti->options.phandle_format = PHANDLE_BOTH;
 			else
 				die("Invalid argument \"%s\" to -H option\n",
 				    optarg);
@@ -250,13 +237,13 @@ int main(int argc, char *argv[])
 			break;
 
 		case '@':
-			generate_symbols = 1;
+			dti->options.generate_symbols = 1;
 			break;
 		case 'A':
-			auto_label_aliases = 1;
+			dti->options.auto_label_aliases = 1;
 			break;
 		case 'T':
-			annotate++;
+			dti->options.annotate++;
 			break;
 
 		case 'h':
@@ -274,7 +261,7 @@ int main(int argc, char *argv[])
 		arg = argv[optind];
 
 	/* minsize and padsize are mutually exclusive */
-	if (minsize && padsize)
+	if (dti->options.minsize && dti->options.padsize)
 		die("Can't set both -p and -S\n");
 
 	if (depname) {
@@ -296,14 +283,14 @@ int main(int argc, char *argv[])
 				outform = "dts";
 		}
 	}
-	if (annotate && (!streq(inform, "dts") || !streq(outform, "dts")))
+	if (dti->options.annotate && (!streq(inform, "dts") || !streq(outform, "dts")))
 		die("--annotate requires -I dts -O dts\n");
 	if (streq(inform, "dts"))
-		dti = dt_from_source(arg);
+		dt_from_source(arg, dti);
 	else if (streq(inform, "fs"))
-		dti = dt_from_fs(arg);
+		dt_from_fs(arg, dti);
 	else if(streq(inform, "dtb"))
-		dti = dt_from_blob(arg);
+		dt_from_blob(arg, dti);
 	else
 		die("Unknown input format \"%s\"\n", inform);
 
@@ -321,18 +308,18 @@ int main(int argc, char *argv[])
 
 	/* on a plugin, generate by default */
 	if (dti->dtsflags & DTSF_PLUGIN) {
-		generate_fixups = 1;
+		dti->options.generate_fixups = 1;
 	}
 
 	process_checks(force, dti);
 
-	if (auto_label_aliases)
+	if (dti->options.auto_label_aliases)
 		generate_label_tree(dti, "aliases", false);
 
-	if (generate_symbols)
+	if (dti->options.generate_symbols)
 		generate_label_tree(dti, "__symbols__", true);
 
-	if (generate_fixups) {
+	if (dti->options.generate_fixups) {
 		generate_fixups_tree(dti, "__fixups__");
 		generate_local_fixups_tree(dti, "__local_fixups__");
 	}

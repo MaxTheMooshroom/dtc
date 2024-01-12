@@ -36,22 +36,22 @@ struct emitter {
 	void (*cell)(void *, cell_t);
 	void (*string)(void *, const char *, int);
 	void (*align)(void *, int);
-	void (*data)(void *, struct data);
-	void (*beginnode)(void *, struct label *labels);
-	void (*endnode)(void *, struct label *labels);
-	void (*property)(void *, struct label *labels);
+	void (*data)(void *, data_t);
+	void (*beginnode)(void *, label_t *labels);
+	void (*endnode)(void *, label_t *labels);
+	void (*property)(void *, label_t *labels);
 };
 
 static void bin_emit_cell(void *e, cell_t val)
 {
-	struct data *dtbuf = e;
+	data_t *dtbuf = e;
 
 	*dtbuf = data_append_cell(*dtbuf, val);
 }
 
 static void bin_emit_string(void *e, const char *str, int len)
 {
-	struct data *dtbuf = e;
+	data_t *dtbuf = e;
 
 	if (len == 0)
 		len = strlen(str);
@@ -62,29 +62,29 @@ static void bin_emit_string(void *e, const char *str, int len)
 
 static void bin_emit_align(void *e, int a)
 {
-	struct data *dtbuf = e;
+	data_t *dtbuf = e;
 
 	*dtbuf = data_append_align(*dtbuf, a);
 }
 
-static void bin_emit_data(void *e, struct data d)
+static void bin_emit_data(void *e, data_t d)
 {
-	struct data *dtbuf = e;
+	data_t *dtbuf = e;
 
 	*dtbuf = data_append_data(*dtbuf, d.val, d.len);
 }
 
-static void bin_emit_beginnode(void *e, struct label *labels)
+static void bin_emit_beginnode(void *e, label_t *labels)
 {
 	bin_emit_cell(e, FDT_BEGIN_NODE);
 }
 
-static void bin_emit_endnode(void *e, struct label *labels)
+static void bin_emit_endnode(void *e, label_t *labels)
 {
 	bin_emit_cell(e, FDT_END_NODE);
 }
 
-static void bin_emit_property(void *e, struct label *labels)
+static void bin_emit_property(void *e, label_t *labels)
 {
 	bin_emit_cell(e, FDT_PROP);
 }
@@ -147,11 +147,11 @@ static void asm_emit_align(void *e, int a)
 	fprintf(f, "\t.balign\t%d, 0\n", a);
 }
 
-static void asm_emit_data(void *e, struct data d)
+static void asm_emit_data(void *e, data_t d)
 {
 	FILE *f = e;
 	unsigned int off = 0;
-	struct marker *m = d.markers;
+	marker_t *m = d.markers;
 
 	for_each_marker_of_type(m, LABEL)
 		emit_offset_label(f, m->ref, m->offset);
@@ -169,10 +169,10 @@ static void asm_emit_data(void *e, struct data d)
 	assert(off == d.len);
 }
 
-static void asm_emit_beginnode(void *e, struct label *labels)
+static void asm_emit_beginnode(void *e, label_t *labels)
 {
 	FILE *f = e;
-	struct label *l;
+	label_t *l;
 
 	for_each_label(labels, l) {
 		fprintf(f, "\t.globl\t%s\n", l->label);
@@ -182,10 +182,10 @@ static void asm_emit_beginnode(void *e, struct label *labels)
 	asm_emit_cell(e, FDT_BEGIN_NODE);
 }
 
-static void asm_emit_endnode(void *e, struct label *labels)
+static void asm_emit_endnode(void *e, label_t *labels)
 {
 	FILE *f = e;
-	struct label *l;
+	label_t *l;
 
 	fprintf(f, "\t/* FDT_END_NODE */\n");
 	asm_emit_cell(e, FDT_END_NODE);
@@ -195,10 +195,10 @@ static void asm_emit_endnode(void *e, struct label *labels)
 	}
 }
 
-static void asm_emit_property(void *e, struct label *labels)
+static void asm_emit_property(void *e, label_t *labels)
 {
 	FILE *f = e;
-	struct label *l;
+	label_t *l;
 
 	for_each_label(labels, l) {
 		fprintf(f, "\t.globl\t%s\n", l->label);
@@ -218,7 +218,7 @@ static struct emitter asm_emitter = {
 	.property = asm_emit_property,
 };
 
-static int stringtable_insert(struct data *d, const char *str)
+static int stringtable_insert(data_t *d, const char *str)
 {
 	unsigned int i;
 
@@ -233,12 +233,12 @@ static int stringtable_insert(struct data *d, const char *str)
 	return i;
 }
 
-static void flatten_tree(struct node *tree, struct emitter *emit,
-			 void *etarget, struct data *strbuf,
+static void flatten_tree(node_t *tree, struct emitter *emit,
+			 void *etarget, data_t *strbuf,
 			 struct version_info *vi)
 {
-	struct property *prop;
-	struct node *child;
+	property_t *prop;
+	node_t *child;
 	bool seen_name_prop = false;
 
 	if (tree->deleted)
@@ -291,11 +291,11 @@ static void flatten_tree(struct node *tree, struct emitter *emit,
 	emit->endnode(etarget, tree->labels);
 }
 
-static struct data flatten_reserve_list(struct reserve_info *reservelist,
-				 struct version_info *vi)
+static data_t flatten_reserve_list(reserve_info_t *reservelist,
+				 struct version_info *vi, unsigned int reservenum)
 {
-	struct reserve_info *re;
-	struct data d = empty_data;
+	reserve_info_t *re;
+	data_t d = empty_data;
 	unsigned int j;
 
 	for (re = reservelist; re; re = re->next) {
@@ -343,14 +343,14 @@ static void make_fdt_header(struct fdt_header *fdt,
 		fdt->size_dt_struct = cpu_to_fdt32(dtsize);
 }
 
-void dt_to_blob(FILE *f, struct dt_info *dti, int version)
+void dt_to_blob(FILE *f, dt_info_t *dti, int version)
 {
 	struct version_info *vi = NULL;
 	unsigned int i;
-	struct data blob       = empty_data;
-	struct data reservebuf = empty_data;
-	struct data dtbuf      = empty_data;
-	struct data strbuf     = empty_data;
+	data_t blob       = empty_data;
+	data_t reservebuf = empty_data;
+	data_t dtbuf      = empty_data;
+	data_t strbuf     = empty_data;
 	struct fdt_header fdt;
 	int padlen = 0;
 
@@ -364,7 +364,7 @@ void dt_to_blob(FILE *f, struct dt_info *dti, int version)
 	flatten_tree(dti->dt, &bin_emitter, &dtbuf, &strbuf, vi);
 	bin_emit_cell(&dtbuf, FDT_END);
 
-	reservebuf = flatten_reserve_list(dti->reservelist, vi);
+	reservebuf = flatten_reserve_list(dti->reservelist, vi, dti->options.reservenum);
 
 	/* Make header */
 	make_fdt_header(&fdt, vi, reservebuf.len, dtbuf.len, strbuf.len,
@@ -373,22 +373,22 @@ void dt_to_blob(FILE *f, struct dt_info *dti, int version)
 	/*
 	 * If the user asked for more space than is used, adjust the totalsize.
 	 */
-	if (minsize > 0) {
-		padlen = minsize - fdt32_to_cpu(fdt.totalsize);
+	if (dti->options.minsize > 0) {
+		padlen = dti->options.minsize - fdt32_to_cpu(fdt.totalsize);
 		if (padlen < 0) {
 			padlen = 0;
-			if (quiet < 1)
+			if (dti->options.quiet < 1)
 				fprintf(stderr,
 					"Warning: blob size %"PRIu32" >= minimum size %d\n",
-					fdt32_to_cpu(fdt.totalsize), minsize);
+					fdt32_to_cpu(fdt.totalsize), dti->options.minsize);
 		}
 	}
 
-	if (padsize > 0)
-		padlen = padsize;
+	if (dti->options.padsize > 0)
+		padlen = dti->options.padsize;
 
-	if (alignsize > 0)
-		padlen = ALIGN(fdt32_to_cpu(fdt.totalsize) + padlen, alignsize)
+	if (dti->options.alignsize > 0)
+		padlen = ALIGN(fdt32_to_cpu(fdt.totalsize) + padlen, dti->options.alignsize)
 			- fdt32_to_cpu(fdt.totalsize);
 
 	if (padlen > 0) {
@@ -430,7 +430,7 @@ void dt_to_blob(FILE *f, struct dt_info *dti, int version)
 	data_free(blob);
 }
 
-static void dump_stringtable_asm(FILE *f, struct data strbuf)
+static void dump_stringtable_asm(FILE *f, data_t strbuf)
 {
 	const char *p;
 	int len;
@@ -444,12 +444,12 @@ static void dump_stringtable_asm(FILE *f, struct data strbuf)
 	}
 }
 
-void dt_to_asm(FILE *f, struct dt_info *dti, int version)
+void dt_to_asm(FILE *f, dt_info_t *dti, int version)
 {
 	struct version_info *vi = NULL;
 	unsigned int i;
-	struct data strbuf = empty_data;
-	struct reserve_info *re;
+	data_t strbuf = empty_data;
+	reserve_info_t *re;
 	const char *symprefix = "dt";
 
 	for (i = 0; i < ARRAY_SIZE(version_table); i++) {
@@ -515,7 +515,7 @@ void dt_to_asm(FILE *f, struct dt_info *dti, int version)
 	 * as it appears .quad isn't available in some assemblers.
 	 */
 	for (re = dti->reservelist; re; re = re->next) {
-		struct label *l;
+		label_t *l;
 
 		for_each_label(re->labels, l) {
 			fprintf(f, "\t.globl\t%s\n", l->label);
@@ -527,7 +527,7 @@ void dt_to_asm(FILE *f, struct dt_info *dti, int version)
 		ASM_EMIT_BELONG(f, "0x%08x", (unsigned int)(re->size >> 32));
 		ASM_EMIT_BELONG(f, "0x%08x", (unsigned int)(re->size & 0xffffffff));
 	}
-	for (i = 0; i < reservenum; i++) {
+	for (i = 0; i < dti->options.reservenum; i++) {
 		fprintf(f, "\t.long\t0, 0\n\t.long\t0, 0\n");
 	}
 
@@ -549,15 +549,15 @@ void dt_to_asm(FILE *f, struct dt_info *dti, int version)
 	/*
 	 * If the user asked for more space than is used, pad it out.
 	 */
-	if (minsize > 0) {
+	if (dti->options.minsize > 0) {
 		fprintf(f, "\t.space\t%d - (_%s_blob_end - _%s_blob_start), 0\n",
-			minsize, symprefix, symprefix);
+			dti->options.minsize, symprefix, symprefix);
 	}
-	if (padsize > 0) {
-		fprintf(f, "\t.space\t%d, 0\n", padsize);
+	if (dti->options.padsize > 0) {
+		fprintf(f, "\t.space\t%d, 0\n", dti->options.padsize);
 	}
-	if (alignsize > 0)
-		asm_emit_align(f, alignsize);
+	if (dti->options.alignsize > 0)
+		asm_emit_align(f, dti->options.alignsize);
 	emit_label(f, symprefix, "blob_abs_end");
 
 	data_free(strbuf);
@@ -625,9 +625,9 @@ static char *flat_read_string(struct inbuf *inb)
 	return str;
 }
 
-static struct data flat_read_data(struct inbuf *inb, int len)
+static data_t flat_read_data(struct inbuf *inb, int len)
 {
-	struct data d = empty_data;
+	data_t d = empty_data;
 
 	if (len == 0)
 		return empty_data;
@@ -661,12 +661,12 @@ static char *flat_read_stringtable(struct inbuf *inb, int offset)
 	return xstrdup(inb->base + offset);
 }
 
-static struct property *flat_read_property(struct inbuf *dtbuf,
+static property_t *flat_read_property(struct inbuf *dtbuf,
 					   struct inbuf *strbuf, int flags)
 {
 	uint32_t proplen, stroff;
 	char *name;
-	struct data val;
+	data_t val;
 
 	proplen = flat_read_word(dtbuf);
 	stroff = flat_read_word(dtbuf);
@@ -682,10 +682,10 @@ static struct property *flat_read_property(struct inbuf *dtbuf,
 }
 
 
-static struct reserve_info *flat_read_mem_reserve(struct inbuf *inb)
+static reserve_info_t *flat_read_mem_reserve(struct inbuf *inb)
 {
-	struct reserve_info *reservelist = NULL;
-	struct reserve_info *new;
+	reserve_info_t *reservelist = NULL;
+	reserve_info_t *new;
 	struct fdt_reserve_entry re;
 
 	/*
@@ -728,11 +728,11 @@ static char *nodename_from_path(const char *ppath, const char *cpath)
 	return xstrdup(cpath + plen);
 }
 
-static struct node *unflatten_tree(struct inbuf *dtbuf,
+static node_t *unflatten_tree(struct inbuf *dtbuf,
 				   struct inbuf *strbuf,
 				   const char *parent_flatname, int flags)
 {
-	struct node *node;
+	node_t *node;
 	char *flatname;
 	uint32_t val;
 
@@ -746,8 +746,8 @@ static struct node *unflatten_tree(struct inbuf *dtbuf,
 		node->name = flatname;
 
 	do {
-		struct property *prop;
-		struct node *child;
+		property_t *prop;
+		node_t *child;
 
 		val = flat_read_word(dtbuf);
 		switch (val) {
@@ -793,8 +793,11 @@ static struct node *unflatten_tree(struct inbuf *dtbuf,
 }
 
 
-struct dt_info *dt_from_blob(const char *fname)
+void dt_from_blob(const char *fname, dt_info_t *dti)
 {
+	if (dti == NULL)
+		die("Attempted to construct tree using a null pointer");
+
 	FILE *f;
 	fdt32_t magic_buf, totalsize_buf;
 	uint32_t magic, totalsize, version, size_dt, boot_cpuid_phys;
@@ -806,8 +809,8 @@ struct dt_info *dt_from_blob(const char *fname)
 	struct inbuf dtbuf, strbuf;
 	struct inbuf memresvbuf;
 	int sizeleft;
-	struct reserve_info *reservelist;
-	struct node *tree;
+	reserve_info_t *reservelist;
+	node_t *tree;
 	uint32_t val;
 	int flags = 0;
 
@@ -922,5 +925,5 @@ struct dt_info *dt_from_blob(const char *fname)
 
 	fclose(f);
 
-	return build_dt_info(DTSF_V1, reservelist, tree, boot_cpuid_phys);
+	build_dt_info(dti, DTSF_V1, reservelist, tree, boot_cpuid_phys);
 }
